@@ -79,8 +79,14 @@ test_*.py
 static/temp_images/*
 !static/temp_images/.gitkeep
 
-# .NET Build artifacts (for sticker_maker symlink target)
-CustomStarterPack2/
+# .NET Build outputs (but keep source code)
+CustomStarterPack2/PrintMaker/bin/
+CustomStarterPack2/PrintMaker/obj/
+CustomStarterPack2/ImgDebugger/bin/
+CustomStarterPack2/ImgDebugger/obj/
+CustomStarterPack2/.vs/
+*.user
+*.suo
 
 # Blender temp files
 *.blend1

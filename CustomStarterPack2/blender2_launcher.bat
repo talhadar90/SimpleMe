@@ -1,0 +1,15 @@
+"blender.exe" ^
+  --background --python "blender2.py" -- ^
+  --figure "3d\base_character_3d.glb" ^
+  --acc "3d\accessory_1_3d.glb" "3d\accessory_2_3d.glb" "3d\accessory_3_3d.glb" ^
+  --card_width 130 --card_height 190 --card_thickness 5 --upper_ratio 0.25 ^
+  --margin_figure 4 --margin_accessories 2 --padding_card 5 ^
+  --fillet 5 ^
+  --acc_front_up ^
+  --title "Markhor3D" ^
+  --subtitle "Enabler D8500" ^
+  --font "ARIAL" ^
+  --text_extr 2 ^
+  --layout "blender2_out\layout.json" ^
+  --outdir "blender2_out" ^
+  --job_id "layout_001" --save_blend
