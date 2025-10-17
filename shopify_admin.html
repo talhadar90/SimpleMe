@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shopify Orders - Admin Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #334155;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            opacity: 0.9;
+            margin-top: 0.5rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .controls {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #5b6fd8;
+            transform: translateY(-1px);
+        }
+
+        .refresh-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .filter-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .filter-select {
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .orders-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: #f8fafc;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+        }
+
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .orders-table th {
+            background: #f8fafc;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .orders-table td {
+            padding: 1rem;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .orders-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-processing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .status-completed {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .status-failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .status-paid {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .download-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .download-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #64748b;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #64748b;
+        }
+
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .job-details {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+
+        .customer-info {
+            font-size: 0.9rem;
+        }
+
+        .customer-email {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .customer-email:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 0.5rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .orders-table {
+                font-size: 0.8rem;
+            }
+            
+            .orders-table th,
+            .orders-table td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛒 Shopify Orders Dashboard</h1>
+        <p>Manage 3D starter pack orders and download STL files</p>
+    </div>
+
+    <div class="container">
+        <!-- Stats Section -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalOrders">-</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="completedOrders">-</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="processingOrders">-</div>
+                <div class="stat-label">Processing</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="pendingOrders">-</div>
+                <div class="stat-label">Pending</div>
+            </div>
+        </div>
+
+        <!-- Controls Section -->
+        <div class="controls">
+            <div class="filter-controls">
+                <label for="statusFilter">Filter by Status:</label>
+                <select id="statusFilter" class="filter-select">
+                    <option value="">All Orders</option>
+                    <option value="pending">Pending</option>
+                    <option value="processing">Processing</option>
+                    <option value="completed">Completed</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+            <button id="refreshBtn" class="refresh-btn">
+                🔄 Refresh Orders
+            </button>
+        </div>
+
+        <!-- Orders Section -->
+        <div class="orders-section">
+            <div class="section-header">
+                📦 Shopify Orders
+            </div>
+            
+            <div id="loadingState" class="loading">
+                <div class="spinner"></div>
+                Loading orders...
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📦</div>
+                <h3>No Orders Found</h3>
+                <p>No Shopify orders have been received yet.</p>
+            </div>
+
+            <table id="ordersTable" class="orders-table" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Customer</th>
+                        <th>Payment</th>
+                        <th>Job Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="ordersTableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin; // Use current domain
+        let allOrders = [];
+        let currentFilter = '';
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadOrders();
+            setupEventListeners();
+            
+            // Auto-refresh every 30 seconds
+            setInterval(loadOrders, 30000);
+        });
+
+        function setupEventListeners() {
+            document.getElementById('refreshBtn').addEventListener('click', loadOrders);
+            document.getElementById('statusFilter').addEventListener('change', function(e) {
+                currentFilter = e.target.value;
+                renderOrders();
+            });
+        }
+
+        async function loadOrders() {
+            const refreshBtn = document.getElementById('refreshBtn');
+            const loadingState = document.getElementById('loadingState');
+            
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<div class="spinner"></div> Refreshing...';
+            loadingState.style.display = 'block';
+            
+            try {
+                const response = await fetch(`${API_BASE}/shopify/orders`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    allOrders = data.orders || [];
+                    updateStats();
+                    renderOrders();
+                } else {
+                    throw new Error(data.detail || 'Failed to load orders');
+                }
+                
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                showError('Failed to load orders: ' + error.message);
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '🔄 Refresh Orders';
+                loadingState.style.display = 'none';
+            }
+        }
+
+        function updateStats() {
+            const stats = {
+                total: allOrders.length,
+                completed: allOrders.filter(o => o.job_status === 'completed').length,
+                processing: allOrders.filter(o => o.job_status === 'processing').length,
+                pending: allOrders.filter(o => o.job_status === 'pending').length
+            };
+
+            document.getElementById('totalOrders').textContent = stats.total;
+            document.getElementById('completedOrders').textContent = stats.completed;
+            document.getElementById('processingOrders').textContent = stats.processing;
+            document.getElementById('pendingOrders').textContent = stats.pending;
+        }
+
+        function renderOrders() {
+            const tableBody = document.getElementById('ordersTableBody');
+            const ordersTable = document.getElementById('ordersTable');
+            const emptyState = document.getElementById('emptyState');
+            
+            // Filter orders
+            let filteredOrders = allOrders;
+            if (currentFilter) {
+                filteredOrders = allOrders.filter(order => order.job_status === currentFilter);
+            }
+            
+            if (filteredOrders.length === 0) {
+                ordersTable.style.display = 'none';
+                emptyState.style.display = 'block';
+                return;
+            }
+            
+            ordersTable.style.display = 'table';
+            emptyState.style.display = 'none';
+            
+            // Sort by creation date (newest first)
+            filteredOrders.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            
+            tableBody.innerHTML = filteredOrders.map(order => {
+                const createdAt = new Date(order.created_at).toLocaleString();
+                const customerName = order.customer_name || 'Unknown';
+                const customerEmail = order.customer_email || '';
+                
+                return `
+                    <tr>
+                        <td>
+                            <strong>${order.order_number}</strong>
+                            ${order.job_id ? `<div class="job-details">Job: ${order.job_id.substring(0, 8)}...</div>` : ''}
+                        </td>
+                        <td class="customer-info">
+                            <div>${customerName}</div>
+                            ${customerEmail ? `<a href="mailto:${customerEmail}" class="customer-email">${customerEmail}</a>` : ''}
+                        </td>
+                        <td>
+                            <span class="status-badge status-${order.payment_status}">
+                                ${order.payment_status}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-${order.job_status}">
+                                ${order.job_status}
+                            </span>
+                        </td>
+                        <td>${createdAt}</td>
+                        <td>
+                            ${order.job_status === 'completed' ? 
+                                `<div style="display: flex; flex-direction: column; gap: 0.2rem;">
+                                    ${order.stl_download_url ? 
+                                        `<a href="${API_BASE}${order.stl_download_url}" 
+                                           class="download-btn" 
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem;">
+                                            📥 Starter Pack STL
+                                        </a>` : ''
+                                    }
+                                    ${order.keychain_stl_download_url ? 
+                                        `<a href="${API_BASE}${order.keychain_stl_download_url}" 
+                                           class="download-btn" 
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #8b5cf6;">
+                                            🔗 Keychain STL
+                                        </a>` : ''
+                                    }
+                                    ${order.base_character_glb_download_url ? 
+                                        `<a href="${API_BASE}${order.base_character_glb_download_url}" 
+                                           class="download-btn" 
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #f59e0b;">
+                                            🎯 Base Character GLB
+                                        </a>` : ''
+                                    }
+                                    ${order.starter_pack_blend_download_url ? 
+                                        `<a href="${API_BASE}${order.starter_pack_blend_download_url}" 
+                                           class="download-btn" 
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #ef4444;">
+                                            🔥 Starter Pack Blend
+                                        </a>` : ''
+                                    }
+                                    ${order.keychain_blend_download_url ? 
+                                        `<a href="${API_BASE}${order.keychain_blend_download_url}" 
+                                           class="download-btn" 
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #6366f1;">
+                                            🔷 Keychain Blend
+                                        </a>` : ''
+                                    }
+                                </div>` : 
+                                `<button class="download-btn" disabled>
+                                    ${order.job_status === 'processing' ? '⏳ Processing...' : '⏸️ Not Ready'}
+                                </button>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function showError(message) {
+            // Simple error display - you can enhance this
+            alert('Error: ' + message);
+        }
+    </script>
+</body>
+</html>

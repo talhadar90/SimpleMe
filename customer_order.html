@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Starter Pack - Place Order</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8fafc;
+            line-height: 1.6;
+        }
+
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #1f2937;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .file-input-container {
+            position: relative;
+        }
+
+        .file-input {
+            border: 2px dashed #d1d5db;
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+
+        .file-input:hover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .file-input.has-file {
+            border-color: #10b981;
+            background: #ecfdf5;
+            border-style: solid;
+        }
+
+        .file-text {
+            font-size: 16px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .file-input.has-file .file-text {
+            color: #10b981;
+        }
+
+        .accessories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+        }
+
+        .price-info {
+            background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            margin: 20px 0;
+            border: 1px solid #c7d2fe;
+        }
+
+        .price {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .price-description {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .submit-btn:disabled {
+            background: #94a3b8;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .message {
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .success a {
+            color: #059669;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .success a:hover {
+            text-decoration: underline;
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .form-container {
+                padding: 20px;
+            }
+
+            .accessories-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>🎯 Order Your 3D Starter Pack</h1>
+        <p class="subtitle">Transform your photo into a custom action figure</p>
+        
+        <form id="orderForm" enctype="multipart/form-data">
+            <!-- Customer Information -->
+            <div class="form-group">
+                <label for="customerName">Your Name</label>
+                <input type="text" id="customerName" name="customer_name" placeholder="Enter your full name" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="customerEmail">Email Address</label>
+                <input type="email" id="customerEmail" name="customer_email" placeholder="your@email.com" required>
+                <div class="form-hint">You'll receive order updates and download links here</div>
+            </div>
+            
+            <!-- Photo Upload -->
+            <div class="form-group">
+                <label for="userImage">Upload Your Photo</label>
+                <div class="file-input-container">
+                    <div class="file-input" onclick="document.getElementById('userImage').click()">
+                        <input type="file" id="userImage" name="user_image" accept="image/*" style="display: none;" required>
+                        <div class="file-text" id="fileText">📸 Click to upload your photo</div>
+                    </div>
+                </div>
+                <div class="form-hint">Clear, well-lit photos work best. JPG, PNG, or WEBP format.</div>
+            </div>
+            
+            <!-- Accessories -->
+            <div class="form-group">
+                <label>Customize Your Accessories</label>
+                <div class="accessories-grid">
+                    <div>
+                        <input type="text" id="accessory1" name="accessory_1" placeholder="First accessory" required>
+                        <div class="form-hint">e.g., sword, shield, helmet</div>
+                    </div>
+                    <div>
+                        <input type="text" id="accessory2" name="accessory_2" placeholder="Second accessory" required>
+                        <div class="form-hint">e.g., backpack, weapon, tool</div>
+                    </div>
+                    <div>
+                        <input type="text" id="accessory3" name="accessory_3" placeholder="Third accessory" required>
+                        <div class="form-hint">e.g., boots, gloves, cape</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pricing -->
+            <div class="price-info">
+                <div class="price">$29.99</div>
+                <div class="price-description">
+                    Includes: 3D Images • STL Files • Complete Digital Package
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-btn" id="submitBtn">
+                🛒 Place Order - $29.99
+            </button>
+        </form>
+        
+        <div id="message" style="display: none;"></div>
+    </div>
+
+    <script>
+        // File upload handling
+        document.getElementById('userImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const fileText = document.getElementById('fileText');
+            const fileInput = document.querySelector('.file-input');
+            
+            if (file) {
+                fileText.textContent = `✅ ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                fileInput.classList.add('has-file');
+            } else {
+                fileText.textContent = '📸 Click to upload your photo';
+                fileInput.classList.remove('has-file');
+            }
+        });
+
+
+        // Form submission
+        document.getElementById('orderForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const messageDiv = document.getElementById('message');
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading-spinner"></span>Processing Order...';
+
+            try {
+                // Create FormData with actual file upload
+                const formData = new FormData();
+                formData.append('customer_name', document.getElementById('customerName').value);
+                formData.append('customer_email', document.getElementById('customerEmail').value);
+                formData.append('accessory_1', document.getElementById('accessory1').value);
+                formData.append('accessory_2', document.getElementById('accessory2').value);
+                formData.append('accessory_3', document.getElementById('accessory3').value);
+                formData.append('user_image', document.getElementById('userImage').files[0]);
+
+                // Send with actual file
+                const orderResponse = await fetch('/shopify/test-order', {
+                    method: 'POST',
+                    body: formData  // Send FormData instead of JSON
+                });
+                
+                const orderData = await orderResponse.json();
+                
+                if (orderResponse.ok) {
+                    messageDiv.className = 'message success';
+                    messageDiv.innerHTML = `
+                        🎉 <strong>Order placed successfully!</strong><br><br>
+                        <strong>Order Number:</strong> ${orderData.order_number}<br>
+                        <strong>Status:</strong> Your 3D generation will start shortly<br>
+                        <strong>Processing Time:</strong> 10-15 minutes<br><br>
+                        
+                        📊 <a href="/admin" target="_blank">View Order Status</a> (Admin Dashboard)
+                    `;
+                    messageDiv.style.display = 'block';
+                    
+                    // Reset form
+                    document.getElementById('orderForm').reset();
+                    document.getElementById('fileText').textContent = '📸 Click to upload your photo';
+                    document.querySelector('.file-input').classList.remove('has-file');
+                    
+                    // Scroll to message
+                    messageDiv.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    throw new Error(orderData.detail || 'Order failed');
+                }
+                
+            } catch (error) {
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = `❌ <strong>Error:</strong> ${error.message}`;
+                messageDiv.style.display = 'block';
+                messageDiv.scrollIntoView({ behavior: 'smooth' });
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '🛒 Place Order - $29.99';
+            }
+        });
+    </script>
+</body>
+</html>

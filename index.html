@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SimpleMe - Starter Pack Generator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Three.js for STL viewing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/STLLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/OrbitControls.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>SimpleMe - Starter Pack Generator</h1>
+        <p>Transform your photos into a complete 3D starter pack with custom styling</p>
+
+        <form id="uploadForm">
+            <div class="form-group">
+                <label for="userImage">User Image:</label>
+                <input type="file" id="userImage" name="user_image" accept="image/*" required>
+                <small>Upload a clear photo/selfie of a person (PNG, JPG, WEBP - Max 50MB)</small>
+            </div>
+
+            <div class="form-group">
+                <label for="style">Style Theme:</label>
+                <select id="style" name="style" required>
+                    <option value="">Loading styles...</option>
+                </select>
+                <small id="styleDescription">Choose a style theme for your action figure</small>
+            </div>
+
+            <div class="form-group">
+                <label for="accessory1">Accessory 1:</label>
+                <input type="text" id="accessory1" name="accessory_1" placeholder="e.g., medieval sword, magic staff, laser gun" required>
+                <small id="accessory1Hint">Enter an accessory that matches your chosen style</small>
+            </div>
+
+            <div class="form-group">
+                <label for="accessory2">Accessory 2:</label>
+                <input type="text" id="accessory2" name="accessory_2" placeholder="e.g., knight shield, cape, armor helmet" required>
+                <small id="accessory2Hint">Enter a second accessory for your character</small>
+            </div>
+
+            <div class="form-group">
+                <label for="accessory3">Accessory 3:</label>
+                <input type="text" id="accessory3" name="accessory_3" placeholder="e.g., combat boots, backpack, utility belt" required>
+                <small id="accessory3Hint">Enter a third accessory to complete the set</small>
+            </div>
+
+            <div class="generation-config" id="generationConfig" style="display: none;">
+                <h4>🎨 Generation Settings</h4>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <span class="config-label">Size:</span>
+                        <span class="config-value" id="configSize">1024x1536</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Quality:</span>
+                        <span class="config-value" id="configQuality">High</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">Background:</span>
+                        <span class="config-value" id="configBackground">Transparent</span>
+                    </div>
+                    <div class="config-item">
+                        <span class="config-label">3D Pipeline:</span>
+                        <span class="config-value">Enabled</span>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                <span id="submitText">🎭 Generate 3D Starter Pack</span>
+                <span id="submitLoading" class="loading" style="display: none;"></span>
+            </button>
+        </form>
+
+        <div id="result" class="result" style="display: none;">
+            <h3>3D Starter Pack Generation Started! 🎉</h3>
+            <div class="job-info">
+                <p><strong>Job ID:</strong> <span id="jobId"></span></p>
+                <p><strong>Style:</strong> <span id="jobStyle"></span></p>
+                <p><strong>Submitted:</strong> <span id="jobTime"></span></p>
+            </div>
+
+            <button onclick="checkStatus()" id="statusBtn">
+                <span id="statusText">🔍 Check Status</span>
+                <span id="statusLoading" class="loading" style="display: none;"></span>
+            </button>
+
+            <div id="statusResult"></div>
+            <div id="imagesContainer"></div>
+            
+            <!-- NEW: 3D Models Section -->
+            <div id="modelsContainer" style="display: none;">
+                <h3>🎯 Generated 3D Models</h3>
+                <div id="modelsList"></div>
+            </div>
+
+            <!-- NEW: Final Package Section -->
+            <div id="packageContainer" style="display: none;">
+                <h3>📦 Complete Starter Pack</h3>
+                <div id="packageDownloads"></div>
+            </div>
+
+            <!-- NEW: STL Viewer Section -->
+            <div id="stlViewerContainer" style="display: none;">
+                <h3>🎯 3D Model Viewer</h3>
+                <div id="stlViewerControls">
+                    <button onclick="resetSTLView()" class="viewer-btn">🔄 Reset View</button>
+                    <button onclick="toggleWireframe()" class="viewer-btn">📐 Wireframe</button>
+                    <button onclick="toggleAutoRotate()" class="viewer-btn">🔄 Auto Rotate</button>
+                </div>
+                <div id="stlViewer" class="stl-viewer"></div>
+                <div id="stlViewerInfo" class="viewer-info">
+                    <p><strong>Controls:</strong> Left click + drag to rotate, Right click + drag to pan, Scroll to zoom</p>
+                </div>
+            </div>
+
+            <!-- NEW: Final Files Download Section -->
+            <div id="finalFilesContainer" style="display: none;">
+                <h3>📁 Download Final Files</h3>
+                <div id="finalFilesList" class="final-files-grid"></div>
+            </div>
+        </div>
+
+        <!-- Style Preview Modal -->
+        <div id="styleModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close" onclick="closeStyleModal()">&times;</span>
+                <h3 id="modalStyleName">Style Preview</h3>
+                <p id="modalStyleDescription"></p>
+                <div class="style-details">
+                    <h4>Character Style:</h4>
+                    <p id="modalCharacterStyle"></p>
+                    <h4>Accessory Style:</h4>
+                    <p id="modalAccessoryStyle"></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h3>Generating Your 3D Starter Pack...</h3>
+                <p id="loadingStatus">Initializing...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <!-- NEW: Pipeline Steps -->
+                <div class="pipeline-steps" id="pipelineSteps">
+                    <div class="step" data-step="upload">📤 Upload</div>
+                    <div class="step" data-step="ai_generation">🤖 AI Generation</div>
+                    <div class="step" data-step="background_removal">🔍 Background Removal</div>
+                    <div class="step" data-step="3d_conversion">🎯 3D Conversion</div>
+                    <div class="step" data-step="blender_processing">🎨 Final Processing</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
