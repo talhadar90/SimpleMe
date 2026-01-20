@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     # OpenAI Configuration
     OPENAI_API_KEY: str  # Required - must be set in .env
-    OPENAI_MODEL: str = "gpt-image-1"  # Start with stable dall-e-2
+    OPENAI_MODEL: str = "gpt-image-1.5"  # Latest OpenAI image model
     IMAGE_SIZE: str = "1024x1536"  # Portrait orientation for action figures
     IMAGE_QUALITY: str = "high"
     TRANSPARENT_BACKGROUND: bool = True

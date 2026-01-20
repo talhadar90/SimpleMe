@@ -32,7 +32,7 @@ SimpleMe is an AI-powered 3D action figure generation service that transforms us
 - Shopify webhook integration for e-commerce orders
 
 **AI Services** (`services/`)
-- `ai_image_generator.py` - OpenAI gpt-image-1 integration for character and accessory generation
+- `ai_image_generator.py` - OpenAI gpt-image-1.5 integration for character and accessory generation
 - `hunyuan3d_client.py` - 3D model generation from 2D images via Hunyuan3D API
 - `background_remover.py` - ComfyUI integration for professional background removal
 - `sticker_maker_service.py` - PrintMaker .NET integration for sticker generation (replaces blender_processor.py)
@@ -80,7 +80,7 @@ storage/
   - Requires .NET 8.0 Runtime
   - Includes embedded Blender automation
   - Generates DXF files for die-cutting
-- **OpenAI API** - Image generation using gpt-image-1 model
+- **OpenAI API** - Image generation using gpt-image-1.5 model
 
 ### Key Configuration
 

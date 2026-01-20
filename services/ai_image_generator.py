@@ -108,15 +108,19 @@ class AIImageGenerator:
 
 CHARACTER REQUIREMENTS:
 - Realistic facial features matching the person in the image (according to gender)
-- Full Body Professional action figure proportions and pose
+- FULL BODY from head to feet - complete figure including legs, torso, arms, and head
+- Professional action figure proportions and pose
+- Show entire body standing - never cut off at waist, knees, or chest
 - High-quality textures and materials
-- Straight confident pose
-- Centered composition
-- Complete figure visible with no cropping
+- Straight confident standing pose with both feet visible
+- Centered composition with full height of character visible
+- Complete figure from top of head to bottom of feet with no body parts cropped
 - Studio lighting with subtle shadows
 - Action figure aesthetic with clean, defined details
 - Premium collectible quality
-- Portrait orientation layout"""
+- Portrait orientation layout showing the complete full-length figure
+
+CRITICAL: Must show COMPLETE FULL BODY - head, torso, arms, legs, and feet all visible. Never half body, never cropped at waist or knees."""
 
     def _build_accessory_prompt(self, accessory: str) -> str:
         """Build accessory prompt with technical specifications"""
@@ -140,11 +144,11 @@ ACCESSORY REQUIREMENTS:
         """Generate action figure from user image using OpenAI Image Edit API with gpt-image-1"""
         try:
             print(f"🎭 Generating {image_type} from user image for job {job_id}")
-            print(f"📐 Using gpt-image-1 with 1024x1536 dimensions")
+            print(f"📐 Using gpt-image-1.5 with 1024x1536 dimensions")
             
             with open(user_image_path, 'rb') as image_file:
                 response = self.client.images.edit(
-                    model="gpt-image-1",
+                    model="gpt-image-1.5",
                     image=image_file,
                     prompt=prompt,
                     size="1024x1536",
@@ -172,7 +176,7 @@ ACCESSORY REQUIREMENTS:
             return {
                 "type": image_type,
                 "method": "image_edit",
-                "model_used": "gpt-image-1",
+                "model_used": "gpt-image-1.5",
                 "prompt": prompt,
                 "size": "1024x1536",
                 "quality": "high",
@@ -193,10 +197,10 @@ ACCESSORY REQUIREMENTS:
         """Generate standalone accessory image using OpenAI Image Generation API with gpt-image-1"""
         try:
             print(f"🎭 Generating {image_type} accessory for job {job_id}")
-            print(f"📐 Using gpt-image-1 with 1024x1536 dimensions")
+            print(f"📐 Using gpt-image-1.5 with 1024x1536 dimensions")
             
             response = self.client.images.generate(
-                model="gpt-image-1",
+                model="gpt-image-1.5",
                 prompt=prompt,
                 size="1024x1536",
                 background="transparent" if self.transparent_background else "auto",
@@ -222,7 +226,7 @@ ACCESSORY REQUIREMENTS:
             return {
                 "type": image_type,
                 "method": "image_generation",
-                "model_used": "gpt-image-1",
+                "model_used": "gpt-image-1.5",
                 "prompt": prompt,
                 "size": "1024x1536",
                 "quality": "high",
