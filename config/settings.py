@@ -56,12 +56,21 @@ class Settings(BaseSettings):
     BLENDER_EXECUTABLE: str = "blender"  # Path to blender executable
     BLENDER_TIMEOUT: int = 180  # 3 minutes timeout for blender operations
     BLENDER_HEADLESS: bool = True  # Run blender in headless mode
-    
-    # 3D Processing Configuration
+
+    # Sticker Maker Configuration (replaces old BlenderProcessor)
+    STICKER_MAKER_EXECUTABLE: str = "/home/ubuntu/SimpleMe/sticker_maker/PrintMaker"
+    STICKER_MAKER_WORKDIR: str = "/home/ubuntu/SimpleMe/sticker_maker"
+    STICKER_MAKER_DPI: int = 300  # Output DPI for printing
+    STICKER_MAKER_MIN_SIZE_MM: float = 10.0  # Minimum sticker size in square mm
+    STICKER_MAKER_CUT_MARGIN_MM: float = 1.0  # Extra cut margin (bleed) in mm
+    STICKER_MAKER_CUT_SMOOTHING: int = 10  # Smoothing iterations for cut paths
+    STICKER_MAKER_TIMEOUT: int = 300  # 5 minutes timeout for sticker generation
+
+    # 3D Processing Configuration (deprecated - kept for compatibility)
     STL_OUTPUT_ENABLED: bool = True
     STL_SCALE_FACTOR: float = 1.0  # Scale factor for STL output
     STL_MERGE_MODELS: bool = True  # Merge all models into single STL
-    
+
     # Final Output Configuration
     FINAL_OUTPUT_FORMATS: List[str] = ["stl", "glb"]  # Output formats to generate
     CLEANUP_INTERMEDIATE_FILES: bool = False  # Keep intermediate files for debugging

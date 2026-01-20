@@ -35,7 +35,11 @@ SimpleMe is an AI-powered 3D action figure generation service that transforms us
 - `ai_image_generator.py` - OpenAI gpt-image-1 integration for character and accessory generation
 - `hunyuan3d_client.py` - 3D model generation from 2D images via Hunyuan3D API
 - `background_remover.py` - ComfyUI integration for professional background removal
-- `blender_processor.py` - Blender automation for 3D model processing and STL generation
+- `sticker_maker_service.py` - PrintMaker .NET integration for sticker generation (replaces blender_processor.py)
+  - Includes Blender layout automation
+  - 2D image composition at 300 DPI
+  - Boundary detection and cut path generation
+  - DXF export for die-cutting machines
 
 **Configuration** (`config/settings.py`)
 - Centralized settings using Pydantic with environment variable support
@@ -47,8 +51,12 @@ SimpleMe is an AI-powered 3D action figure generation service that transforms us
 2. **AI Generation** - Generate base character (from user photo) + 3 accessory images using OpenAI
 3. **Background Removal** - ComfyUI processes all images for clean backgrounds
 4. **3D Conversion** - Hunyuan3D converts 2D images to 3D models
-5. **Blender Processing** - Automated 3D model cleanup, scaling, and STL export
-6. **Final Output** - Complete action figure starter pack with multiple file formats
+5. **Sticker Generation** - PrintMaker (.NET) processes 3D models and 2D images:
+   - Blender layout automation (130x190mm card)
+   - 2D image composition at 300 DPI
+   - Boundary detection with smoothing
+   - DXF export for die-cutting
+6. **Final Output** - Printable sticker files (printing.png, reference.png, cutting.dxf)
 
 ### Storage Structure
 
@@ -56,14 +64,22 @@ SimpleMe is an AI-powered 3D action figure generation service that transforms us
 storage/
 ├── uploads/{job_id}/          # Original user images
 ├── generated/{job_id}/        # AI-generated images
-└── processed/{job_id}/        # Final 3D models and STL files
+└── processed/{job_id}/        # Final output files
+    ├── 3d_models/             # GLB files from Hunyuan3D
+    └── stickers/              # PrintMaker output
+        ├── printing.png       # High-res printable file (300 DPI)
+        ├── reference.png      # Preview with cut lines
+        └── cutting.dxf        # Vector cutting paths
 ```
 
 ### External Dependencies
 
 - **ComfyUI Server** - Background removal (runs on separate instance at port 8188)
 - **Hunyuan3D API** - 3D model generation (configured via HUNYUAN3D_API_URL)
-- **Blender** - 3D processing (headless mode via BLENDER_EXECUTABLE setting)
+- **PrintMaker (.NET Core)** - Sticker generation (symlinked at `sticker_maker/`)
+  - Requires .NET 8.0 Runtime
+  - Includes embedded Blender automation
+  - Generates DXF files for die-cutting
 - **OpenAI API** - Image generation using gpt-image-1 model
 
 ### Key Configuration
@@ -72,14 +88,14 @@ All configuration is in `config/settings.py`:
 - OpenAI API key (required)
 - ComfyUI server endpoint
 - Hunyuan3D API URL
-- Blender executable path
+- PrintMaker executable path and settings (DPI, margins, smoothing)
 - File size limits and output formats
 
 ### Job Processing
 
 Jobs are processed asynchronously with detailed progress tracking:
 - `queued` → `processing` → `completed`/`failed`
-- Each step (upload, AI generation, background removal, 3D conversion, Blender processing) tracked individually
+- Each step (upload, AI generation, background removal, 3D conversion, sticker generation) tracked individually
 - Full error handling and logging throughout pipeline
 
 ### Shopify Integration

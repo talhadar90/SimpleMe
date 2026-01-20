@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Shopify Orders - Admin Dashboard</title>
+    <title>Orders & Jobs - Admin Dashboard</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -285,8 +285,8 @@
 </head>
 <body>
     <div class="header">
-        <h1>🛒 Shopify Orders Dashboard</h1>
-        <p>Manage 3D starter pack orders and download STL files</p>
+        <h1>🛒 Orders & Jobs Dashboard</h1>
+        <p>Manage Shopify orders, direct submissions, and download files</p>
     </div>
 
     <div class="container">
@@ -330,7 +330,7 @@
         <!-- Orders Section -->
         <div class="orders-section">
             <div class="section-header">
-                📦 Shopify Orders
+                📦 All Orders & Jobs
             </div>
             
             <div id="loadingState" class="loading">
@@ -392,17 +392,71 @@
             loadingState.style.display = 'block';
             
             try {
-                const response = await fetch(`${API_BASE}/shopify/orders`);
-                const data = await response.json();
-                
-                if (response.ok) {
-                    allOrders = data.orders || [];
-                    updateStats();
-                    renderOrders();
-                } else {
-                    throw new Error(data.detail || 'Failed to load orders');
-                }
-                
+                // Fetch both Shopify orders and regular jobs
+                const [shopifyResponse, jobsResponse] = await Promise.all([
+                    fetch(`${API_BASE}/shopify/orders`),
+                    fetch(`${API_BASE}/jobs`)
+                ]);
+
+                const shopifyData = await shopifyResponse.json();
+                const jobsData = await jobsResponse.json();
+
+                // Merge Shopify orders and regular jobs
+                const shopifyOrders = shopifyData.orders || [];
+                const regularJobs = (jobsData.jobs || []).map(job => {
+                    // Safely access nested properties and build download URLs
+                    let downloadUrls = {};
+
+                    if (job.result && job.result.sticker_result) {
+                        const outputFiles = job.result.sticker_result.output_files;
+                        if (outputFiles && Array.isArray(outputFiles)) {
+                            outputFiles.forEach(file => {
+                                if (file.filename === 'card_model.stl') {
+                                    downloadUrls.stl_download_url = file.download_url;
+                                } else if (file.filename === 'keychain_model.stl') {
+                                    downloadUrls.keychain_stl_download_url = file.download_url;
+                                } else if (file.filename === 'card_model.blend') {
+                                    downloadUrls.starter_pack_blend_download_url = file.download_url;
+                                } else if (file.filename === 'keychain_model.blend') {
+                                    downloadUrls.keychain_blend_download_url = file.download_url;
+                                } else if (file.filename === 'card_printing.png') {
+                                    downloadUrls.card_printing_png_download_url = file.download_url;
+                                } else if (file.filename === 'keychain_printing.png') {
+                                    downloadUrls.keychain_printing_png_download_url = file.download_url;
+                                }
+                            });
+                        }
+                    }
+
+                    // Add GLB from models_3d
+                    if (job.result && job.result.models_3d && Array.isArray(job.result.models_3d)) {
+                        const baseCharacterModel = job.result.models_3d.find(m => m.model_filename && m.model_filename.includes('base_character'));
+                        if (baseCharacterModel && baseCharacterModel.model_url) {
+                            downloadUrls.base_character_glb_download_url = baseCharacterModel.model_url;
+                        }
+                    }
+
+                    return {
+                        order_id: job.job_id,
+                        order_number: job.job_id.substring(0, 8),
+                        customer_email: 'Direct submission',
+                        job_id: job.job_id,
+                        job_status: job.status,
+                        created_at: job.created_at,
+                        updated_at: job.updated_at,
+                        is_regular_job: true,
+                        ...downloadUrls
+                    };
+                });
+
+                // Combine and sort by created_at (newest first)
+                allOrders = [...shopifyOrders, ...regularJobs].sort((a, b) =>
+                    new Date(b.created_at) - new Date(a.created_at)
+                );
+
+                updateStats();
+                renderOrders();
+
             } catch (error) {
                 console.error('Error loading orders:', error);
                 showError('Failed to load orders: ' + error.message);
@@ -511,15 +565,31 @@
                                             🔥 Starter Pack Blend
                                         </a>` : ''
                                     }
-                                    ${order.keychain_blend_download_url ? 
-                                        `<a href="${API_BASE}${order.keychain_blend_download_url}" 
-                                           class="download-btn" 
+                                    ${order.keychain_blend_download_url ?
+                                        `<a href="${API_BASE}${order.keychain_blend_download_url}"
+                                           class="download-btn"
                                            download
                                            style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #6366f1;">
                                             🔷 Keychain Blend
                                         </a>` : ''
                                     }
-                                </div>` : 
+                                    ${order.card_printing_png_download_url ?
+                                        `<a href="${API_BASE}${order.card_printing_png_download_url}"
+                                           class="download-btn"
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #10b981;">
+                                            🖨️ Card Print PNG
+                                        </a>` : ''
+                                    }
+                                    ${order.keychain_printing_png_download_url ?
+                                        `<a href="${API_BASE}${order.keychain_printing_png_download_url}"
+                                           class="download-btn"
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #14b8a6;">
+                                            🖨️ Keychain Print PNG
+                                        </a>` : ''
+                                    }
+                                </div>` :
                                 `<button class="download-btn" disabled>
                                     ${order.job_status === 'processing' ? '⏳ Processing...' : '⏸️ Not Ready'}
                                 </button>`

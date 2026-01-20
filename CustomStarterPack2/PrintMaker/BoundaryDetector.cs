@@ -385,7 +385,6 @@ static class BoundaryDetector
         if (ordered == null || ordered.Count < 4) return;
 
         var p0 = ordered[0];
-
         
         // 2) Find first point after warmup that is "close enough" back to p0
         for (int i = warmup + 1; i < ordered.Count; i++)
@@ -415,55 +414,78 @@ static class BoundaryDetector
         long dy = (long)b.Y - a.Y;
         return dx * dx + dy * dy;
     }
-
-    // Greedy nearest-neighbor ordering to turn an unordered boundary set into a path.
-    // O(n^2) but fine for typical boundary sizes. Produces a closed loop if endpoints meet.
-    public static void OrderContourGreedy(BoundaryInfo b)
+    // Greedy nearest-neighbor ordering with a smarter start:
+    // pick the point that has the MOST neighbors within 'vicinityRadius' pixels.
+    // Ties -> smallest (x+y) for determinism.
+    public static void OrderContourGreedy(BoundaryInfo b, int vicinityRadius = 3)
     {
-        var unordered = b.BoundaryPixels;
-        if (unordered.Count <= 2) return;
+        var pts = b.BoundaryPixels;
+        int n = pts.Count;
+        if (n <= 2) return;
 
-        // Start from the lexicographically smallest (x+y) to anchor deterministically
+        // --- choose start: densest neighborhood within radius r ---
+        int r2 = vicinityRadius * vicinityRadius;
         int startIdx = 0;
-        int bestKey = unordered[0].X + unordered[0].Y;
-        for (int i = 1; i < unordered.Count; i++)
+        int bestCount = -1;
+
+        for (int i = 0; i < n; i++)
         {
-            int key = unordered[i].X + unordered[i].Y;
-            if (key < bestKey) { bestKey = key; startIdx = i; }
+            var pi = pts[i];
+            int count = 0;
+            for (int j = 0; j < n; j++)
+            {
+                if (j == i) continue;
+                int dx = pts[j].X - pi.X;
+                int dy = pts[j].Y - pi.Y;
+                if (dx * dx + dy * dy <= r2) count++;
+            }
+
+            if (count > bestCount)
+            {
+                bestCount = count;
+                startIdx = i;
+            }
         }
 
-        var used = new bool[unordered.Count];
-        var ordered = new List<Point>(unordered.Count);
+        // --- standard greedy chaining from that start ---
+        var used = new bool[n];
+        var ordered = new List<Point>(n);
+
         int cur = startIdx;
         used[cur] = true;
-        ordered.Add(unordered[cur]);
+        ordered.Add(pts[cur]);
 
-        for (; ; )
+        while (true)
         {
             int best = -1;
             int bestD2 = int.MaxValue;
+            var c = pts[cur];
 
-            var c = unordered[cur];
-            for (int j = 0; j < unordered.Count; j++)
+            for (int j = 0; j < n; j++)
             {
                 if (used[j]) continue;
-                var p = unordered[j];
-                int dx = p.X - c.X, dy = p.Y - c.Y;
+                int dx = pts[j].X - c.X;
+                int dy = pts[j].Y - c.Y;
                 int d2 = dx * dx + dy * dy;
                 if (d2 < bestD2)
                 {
-                    bestD2 = d2; best = j;
+                    bestD2 = d2;
+                    best = j;
                 }
             }
+
             if (best == -1) break;
             used[best] = true;
-            ordered.Add(unordered[best]);
+            ordered.Add(pts[best]);
             cur = best;
         }
-        unordered.Clear();
-        unordered.AddRange(ordered);
-    }// Prefer Moore-Neighbor tracing for a clean, non-crossing ordered contour.
-     // Build the mask once, then trace each boundary using a left-hand rule.
+
+        pts.Clear();
+        pts.AddRange(ordered);
+    }
+    
+    // Prefer Moore-Neighbor tracing for a clean, non-crossing ordered contour.
+    // Build the mask once, then trace each boundary using a left-hand rule.
     public static void OrderAllContoursMoore(Image<Rgba32> img, List<BoundaryInfo> infos, byte alphaThreshold = 1)
     {
         int W = img.Width, H = img.Height;
@@ -496,7 +518,7 @@ static class BoundaryDetector
     (-1, 0), (-1,-1), ( 0,-1), ( 1,-1)
 };
 
-    public static BoundaryInfo MakeRoundedRectBoundary(int id, int width, int height, float radiusPx, int cornerSegments = 12)
+    public static BoundaryInfo MakeRoundedRectBoundary(int id, int width, int height, float radiusPx, int cornerSegments = 12, bool layoutOnly = false)
     {
         // Clamp radius
         float r = MathF.Max(0f, MathF.Min(radiusPx, MathF.Min((width - 1) * 0.5f, (height - 1) * 0.5f)));

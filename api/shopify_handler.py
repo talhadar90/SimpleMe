@@ -350,31 +350,38 @@ class ShopifyHandler:
             
             # Get files from results
             result = job_data.get("result", {})
-            blender_result = result.get("blender_result", {})
-            output_files = blender_result.get("output_files", [])
+            sticker_result = result.get("sticker_result", {})
+            output_files = sticker_result.get("output_files", [])
             models_3d = result.get("models_3d", [])
-            
+
             # Find available files
             starter_pack_stl = None
             starter_pack_blend = None
             keychain_stl = None
             keychain_blend = None
             base_character_glb = None
-            
-            # Check blender output files
+            card_printing_png = None
+            keychain_printing_png = None
+
+            # Check sticker_result output files
             for file_info in output_files:
                 filename = file_info.get("filename", "")
-                if file_info.get("file_extension", "").lower() == ".stl":
-                    if "keychain" in filename:
-                        keychain_stl = file_info
-                    elif "starter_pack" in filename:
-                        starter_pack_stl = file_info
-                elif file_info.get("file_extension", "").lower() == ".blend":
-                    if "keychain" in filename:
-                        keychain_blend = file_info
-                    elif "starter_pack" in filename:
-                        starter_pack_blend = file_info
-            
+                file_type = file_info.get("file_type", "")
+
+                # Match by file_type (more reliable than filename)
+                if file_type == "starter_pack_stl":
+                    starter_pack_stl = file_info
+                elif file_type == "starter_pack_blend":
+                    starter_pack_blend = file_info
+                elif file_type == "keychain_stl":
+                    keychain_stl = file_info
+                elif file_type == "keychain_blend":
+                    keychain_blend = file_info
+                elif file_type == "card_printing_file":
+                    card_printing_png = file_info
+                elif file_type == "keychain_printing_file":
+                    keychain_printing_png = file_info
+
             # Check for base character GLB in 3D models
             for model in models_3d:
                 if isinstance(model, dict) and "base_character_3d" in model.get("model_filename", ""):
@@ -388,17 +395,19 @@ class ShopifyHandler:
                     'keychain_stl_download_url': f"/shopify/download/{job_id}/keychain_stl" if keychain_stl else None,
                     'base_character_glb_download_url': f"/shopify/download/{job_id}/base_character_glb" if base_character_glb else None,
                     'starter_pack_blend_download_url': f"/shopify/download/{job_id}/starter_pack_blend" if starter_pack_blend else None,
-                    'keychain_blend_download_url': f"/shopify/download/{job_id}/keychain_blend" if keychain_blend else None
+                    'keychain_blend_download_url': f"/shopify/download/{job_id}/keychain_blend" if keychain_blend else None,
+                    'card_printing_png_download_url': f"/shopify/download/{job_id}/card_printing_png" if card_printing_png else None,
+                    'keychain_printing_png_download_url': f"/shopify/download/{job_id}/keychain_printing_png" if keychain_printing_png else None
                 }
-                
+
                 # Update Shopify order record
                 shopify_orders[order_id].update({
                     'job_status': 'completed',
                     'updated_at': datetime.now().isoformat(),
                     **download_urls
                 })
-                
-                logger.info(f"✅ Shopify order {order_id} completed with files: starter_pack_stl={bool(starter_pack_stl)}, keychain_stl={bool(keychain_stl)}, base_character_glb={bool(base_character_glb)}, starter_pack_blend={bool(starter_pack_blend)}, keychain_blend={bool(keychain_blend)}")
+
+                logger.info(f"✅ Shopify order {order_id} completed with files: starter_pack_stl={bool(starter_pack_stl)}, keychain_stl={bool(keychain_stl)}, base_character_glb={bool(base_character_glb)}, starter_pack_blend={bool(starter_pack_blend)}, keychain_blend={bool(keychain_blend)}, card_printing_png={bool(card_printing_png)}, keychain_printing_png={bool(keychain_printing_png)}")
             else:
                 logger.warning(f"No starter pack STL file found for job {job_id}")
                 shopify_orders[order_id]['job_status'] = 'failed'
@@ -442,28 +451,26 @@ class ShopifyHandler:
         """Get STL file for download"""
         if job_id not in self.job_storage:
             raise HTTPException(status_code=404, detail="Job not found")
-        
+
         job_data = self.job_storage[job_id]
-        
+
         if job_data["status"] != "completed":
             raise HTTPException(status_code=404, detail="Job not completed")
-        
+
         # Find STL file (regular starter pack)
         result = job_data.get("result", {})
-        blender_result = result.get("blender_result", {})
-        output_files = blender_result.get("output_files", [])
-        
+        sticker_result = result.get("sticker_result", {})
+        output_files = sticker_result.get("output_files", [])
+
         stl_file = None
         for file_info in output_files:
-            filename = file_info.get("filename", "")
-            if (file_info.get("file_extension", "").lower() == ".stl" and 
-                "starter_pack_" in filename and "keychain" not in filename):
+            if file_info.get("file_type") == "starter_pack_stl":
                 stl_file = file_info
                 break
-        
+
         if not stl_file or not os.path.exists(stl_file.get("file_path", "")):
             raise HTTPException(status_code=404, detail="STL file not found")
-        
+
         from fastapi.responses import FileResponse
         return FileResponse(
             path=stl_file["file_path"],
@@ -475,28 +482,26 @@ class ShopifyHandler:
         """Get keychain STL file for download"""
         if job_id not in self.job_storage:
             raise HTTPException(status_code=404, detail="Job not found")
-        
+
         job_data = self.job_storage[job_id]
-        
+
         if job_data["status"] != "completed":
             raise HTTPException(status_code=404, detail="Job not completed")
-        
+
         # Find keychain STL file
         result = job_data.get("result", {})
-        blender_result = result.get("blender_result", {})
-        output_files = blender_result.get("output_files", [])
-        
+        sticker_result = result.get("sticker_result", {})
+        output_files = sticker_result.get("output_files", [])
+
         keychain_stl_file = None
         for file_info in output_files:
-            filename = file_info.get("filename", "")
-            if (file_info.get("file_extension", "").lower() == ".stl" and 
-                "keychain" in filename):
+            if file_info.get("file_type") == "keychain_stl":
                 keychain_stl_file = file_info
                 break
-        
+
         if not keychain_stl_file or not os.path.exists(keychain_stl_file.get("file_path", "")):
             raise HTTPException(status_code=404, detail="Keychain STL file not found")
-        
+
         from fastapi.responses import FileResponse
         return FileResponse(
             path=keychain_stl_file["file_path"],
@@ -542,28 +547,26 @@ class ShopifyHandler:
         """Get starter pack Blender file for download"""
         if job_id not in self.job_storage:
             raise HTTPException(status_code=404, detail="Job not found")
-        
+
         job_data = self.job_storage[job_id]
-        
+
         if job_data["status"] != "completed":
             raise HTTPException(status_code=404, detail="Job not completed")
-        
+
         # Find starter pack Blender file
         result = job_data.get("result", {})
-        blender_result = result.get("blender_result", {})
-        output_files = blender_result.get("output_files", [])
-        
+        sticker_result = result.get("sticker_result", {})
+        output_files = sticker_result.get("output_files", [])
+
         starter_pack_blend_file = None
         for file_info in output_files:
-            filename = file_info.get("filename", "")
-            if (file_info.get("file_extension", "").lower() == ".blend" and 
-                "starter_pack" in filename and "keychain" not in filename):
+            if file_info.get("file_type") == "starter_pack_blend":
                 starter_pack_blend_file = file_info
                 break
-        
+
         if not starter_pack_blend_file or not os.path.exists(starter_pack_blend_file.get("file_path", "")):
             raise HTTPException(status_code=404, detail="Starter pack Blender file not found")
-        
+
         from fastapi.responses import FileResponse
         return FileResponse(
             path=starter_pack_blend_file["file_path"],
@@ -575,31 +578,91 @@ class ShopifyHandler:
         """Get keychain Blender file for download"""
         if job_id not in self.job_storage:
             raise HTTPException(status_code=404, detail="Job not found")
-        
+
         job_data = self.job_storage[job_id]
-        
+
         if job_data["status"] != "completed":
             raise HTTPException(status_code=404, detail="Job not completed")
-        
+
         # Find keychain Blender file
         result = job_data.get("result", {})
-        blender_result = result.get("blender_result", {})
-        output_files = blender_result.get("output_files", [])
-        
+        sticker_result = result.get("sticker_result", {})
+        output_files = sticker_result.get("output_files", [])
+
         keychain_blend_file = None
         for file_info in output_files:
-            filename = file_info.get("filename", "")
-            if (file_info.get("file_extension", "").lower() == ".blend" and 
-                "keychain" in filename):
+            if file_info.get("file_type") == "keychain_blend":
                 keychain_blend_file = file_info
                 break
-        
+
         if not keychain_blend_file or not os.path.exists(keychain_blend_file.get("file_path", "")):
             raise HTTPException(status_code=404, detail="Keychain Blender file not found")
-        
+
         from fastapi.responses import FileResponse
         return FileResponse(
             path=keychain_blend_file["file_path"],
             filename=keychain_blend_file["filename"],
             media_type="application/octet-stream"
+        )
+
+    async def get_card_printing_png_download(self, job_id: str):
+        """Get card printing PNG file for download"""
+        if job_id not in self.job_storage:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        job_data = self.job_storage[job_id]
+
+        if job_data["status"] != "completed":
+            raise HTTPException(status_code=404, detail="Job not completed")
+
+        # Find card printing PNG file
+        result = job_data.get("result", {})
+        sticker_result = result.get("sticker_result", {})
+        output_files = sticker_result.get("output_files", [])
+
+        card_printing_file = None
+        for file_info in output_files:
+            if file_info.get("file_type") == "card_printing_file":
+                card_printing_file = file_info
+                break
+
+        if not card_printing_file or not os.path.exists(card_printing_file.get("file_path", "")):
+            raise HTTPException(status_code=404, detail="Card printing PNG file not found")
+
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=card_printing_file["file_path"],
+            filename=card_printing_file["filename"],
+            media_type="image/png"
+        )
+
+    async def get_keychain_printing_png_download(self, job_id: str):
+        """Get keychain printing PNG file for download"""
+        if job_id not in self.job_storage:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        job_data = self.job_storage[job_id]
+
+        if job_data["status"] != "completed":
+            raise HTTPException(status_code=404, detail="Job not completed")
+
+        # Find keychain printing PNG file
+        result = job_data.get("result", {})
+        sticker_result = result.get("sticker_result", {})
+        output_files = sticker_result.get("output_files", [])
+
+        keychain_printing_file = None
+        for file_info in output_files:
+            if file_info.get("file_type") == "keychain_printing_file":
+                keychain_printing_file = file_info
+                break
+
+        if not keychain_printing_file or not os.path.exists(keychain_printing_file.get("file_path", "")):
+            raise HTTPException(status_code=404, detail="Keychain printing PNG file not found")
+
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=keychain_printing_file["file_path"],
+            filename=keychain_printing_file["filename"],
+            media_type="image/png"
         )

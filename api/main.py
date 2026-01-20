@@ -15,7 +15,7 @@ import asyncio
 # Import our services
 from services.ai_image_generator import AIImageGenerator
 from services.hunyuan3d_client import Hunyuan3DClient
-from services.blender_processor import BlenderProcessor
+from services.sticker_maker_service import StickerMakerService  # Replaced BlenderProcessor
 from config.settings import settings
 from fastapi.staticfiles import StaticFiles
 from services.background_remover import ComfyUIBackgroundRemover
@@ -87,13 +87,161 @@ except Exception as e:
     raise
 
 try:
-    blender_processor = BlenderProcessor()
-    logger.info("✅ Blender Processor initialized")
+    sticker_maker = StickerMakerService()
+    logger.info("✅ Sticker Maker Service initialized (replaces BlenderProcessor)")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize Blender Processor: {e}")
+    logger.error(f"❌ Failed to initialize Sticker Maker Service: {e}")
     raise
 
 
+
+# Function to restore jobs from storage
+async def restore_jobs_from_storage():
+    """Restore job metadata from storage directories on startup"""
+    try:
+        logger.info("🔄 Restoring jobs from storage...")
+
+        restored_count = 0
+
+        # Scan storage directories
+        storage_paths = [
+            settings.UPLOAD_PATH,
+            settings.GENERATED_PATH,
+            settings.PROCESSED_PATH
+        ]
+
+        job_ids_found = set()
+
+        for storage_path in storage_paths:
+            if not os.path.exists(storage_path):
+                continue
+
+            for job_id in os.listdir(storage_path):
+                if job_id in job_ids_found:
+                    continue
+
+                # Skip common directory names that aren't job IDs
+                if job_id in ["3d_models", "stl_files", "stickers"]:
+                    continue
+
+                job_ids_found.add(job_id)
+                job_dir = os.path.join(storage_path, job_id)
+                if not os.path.isdir(job_dir):
+                    continue
+
+                # Skip if already in memory
+                if job_id in job_storage:
+                    continue
+
+                # Try to find completion status from files
+                processed_dir = os.path.join(settings.PROCESSED_PATH, job_id)
+                has_stickers = os.path.exists(os.path.join(processed_dir, "stickers"))
+                has_3d_models = os.path.exists(os.path.join(processed_dir, "3d_models"))
+
+                generated_dir = os.path.join(settings.GENERATED_PATH, job_id)
+                has_generated = os.path.exists(generated_dir) and len(os.listdir(generated_dir)) > 0
+
+                # Determine status based on what exists
+                if has_stickers and has_3d_models:
+                    status = "completed"
+                    progress_state = {
+                        "upload": "completed",
+                        "ai_generation": "completed",
+                        "background_removal": "completed",
+                        "3d_conversion": "completed",
+                        "sticker_generation": "completed"
+                    }
+                elif has_3d_models:
+                    status = "processing"
+                    progress_state = {
+                        "upload": "completed",
+                        "ai_generation": "completed",
+                        "background_removal": "completed",
+                        "3d_conversion": "completed",
+                        "sticker_generation": "pending"
+                    }
+                elif has_generated:
+                    status = "processing"
+                    progress_state = {
+                        "upload": "completed",
+                        "ai_generation": "completed",
+                        "background_removal": "pending",
+                        "3d_conversion": "pending",
+                        "sticker_generation": "pending"
+                    }
+                else:
+                    status = "queued"
+                    progress_state = {
+                        "upload": "completed",
+                        "ai_generation": "pending",
+                        "background_removal": "pending",
+                        "3d_conversion": "pending",
+                        "sticker_generation": "pending"
+                    }
+
+                # Get file timestamps for created_at
+                created_at = datetime.fromtimestamp(os.path.getctime(job_dir)).isoformat()
+                updated_at = datetime.fromtimestamp(os.path.getmtime(job_dir)).isoformat()
+
+                # Build result object if job is completed
+                result = None
+                if status == "completed" and has_stickers:
+                    sticker_dir = os.path.join(processed_dir, "stickers")
+                    output_files = []
+
+                    # Scan sticker files
+                    if os.path.exists(sticker_dir):
+                        for filename in os.listdir(sticker_dir):
+                            file_path = os.path.join(sticker_dir, filename)
+                            if os.path.isfile(file_path):
+                                file_size = os.path.getsize(file_path)
+                                output_files.append({
+                                    'filename': filename,
+                                    'file_path': file_path,
+                                    'file_size_mb': round(file_size / (1024 * 1024), 2),
+                                    'download_url': f'/storage/processed/{job_id}/stickers/{filename}'
+                                })
+
+                    # Scan 3D models
+                    models_3d = []
+                    models_dir = os.path.join(processed_dir, "3d_models")
+                    if os.path.exists(models_dir):
+                        for filename in os.listdir(models_dir):
+                            if filename.endswith('.glb'):
+                                file_path = os.path.join(models_dir, filename)
+                                file_size = os.path.getsize(file_path)
+                                models_3d.append({
+                                    'model_filename': filename,
+                                    'model_path': file_path,
+                                    'file_size_bytes': file_size,
+                                    'model_url': f'/storage/processed/{job_id}/3d_models/{filename}'
+                                })
+
+                    result = {
+                        'sticker_result': {
+                            'output_files': output_files
+                        },
+                        'models_3d': models_3d
+                    }
+
+                # Restore job to memory
+                job_storage[job_id] = {
+                    "job_id": job_id,
+                    "status": status,
+                    "progress": progress_state,
+                    "created_at": created_at,
+                    "updated_at": updated_at,
+                    "result": result,
+                    "restored": True  # Flag to indicate this was restored
+                }
+
+                restored_count += 1
+
+        logger.info(f"✅ Restored {restored_count} jobs from storage")
+
+    except Exception as e:
+        logger.error(f"❌ Error restoring jobs: {e}")
+        logger.error(traceback.format_exc())
 
 # Startup event
 @app.on_event("startup")
@@ -101,19 +249,22 @@ async def startup_event():
     """Run startup checks"""
     logger.info("🔧 Running startup health checks...")
 
+    # Restore jobs from storage
+    await restore_jobs_from_storage()
+
     # Create static directory for ComfyUI
     os.makedirs("static/temp_images", exist_ok=True)
     logger.info("📁 Static directory created for ComfyUI")
     
-    # Check Blender installation
+    # Check Sticker Maker installation
     try:
-        blender_ok = await blender_processor.health_check()
-        if blender_ok:
-            logger.info("✅ Blender health check passed")
+        sticker_maker_ok = await sticker_maker.health_check()
+        if sticker_maker_ok:
+            logger.info("✅ Sticker Maker health check passed")
         else:
-            logger.warning("⚠️ Blender health check failed - 3D processing may not work")
+            logger.warning("⚠️ Sticker Maker health check failed - sticker generation may not work")
     except Exception as e:
-        logger.error(f"❌ Blender health check error: {e}")
+        logger.error(f"❌ Sticker Maker health check error: {e}")
     
     # Check Hunyuan3D API
     try:
@@ -182,10 +333,10 @@ async def submit_job(
             "status": "queued",
             "progress": {
                 "upload": "pending",
-                "ai_generation": "pending", 
+                "ai_generation": "pending",
                 "background_removal": "pending",
                 "3d_conversion": "pending",
-                "blender_processing": "pending"
+                "sticker_generation": "pending"  # Renamed from blender_processing
             },
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
@@ -266,7 +417,7 @@ async def get_job_status(job_id: str):
 async def list_jobs():
     """List all jobs (for debugging)"""
     logger.info(f"📋 Listing all jobs - Total: {len(job_storage)}")
-    
+
     return {
         "total_jobs": len(job_storage),
         "jobs": [
@@ -275,7 +426,8 @@ async def list_jobs():
                 "status": job_data["status"],
                 "created_at": job_data["created_at"],
                 "updated_at": job_data["updated_at"],
-                "generation_config": job_data.get("generation_config", {})
+                "generation_config": job_data.get("generation_config", {}),
+                "result": job_data.get("result")  # Include result for file downloads
             }
             for job_id, job_data in job_storage.items()
         ]
@@ -329,9 +481,9 @@ async def health_check():
     
     try:
         # Check service health
-        blender_health = await blender_processor.health_check()
+        sticker_maker_health = await sticker_maker.health_check()
         hunyuan_health = await hunyuan3d_client.health_check()
-        
+
         health_data = {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
@@ -340,7 +492,7 @@ async def health_check():
             "ai_generator": "healthy",
             "services": {
                 "ai_generator": "healthy",
-                "blender_processor": "healthy" if blender_health else "unhealthy",
+                "sticker_maker": "healthy" if sticker_maker_health else "unhealthy",  # Changed from blender_processor
                 "hunyuan3d_client": "healthy" if hunyuan_health else "unhealthy"
             },
             "config": {
@@ -348,12 +500,12 @@ async def health_check():
                 "image_quality": settings.IMAGE_QUALITY,
                 "transparent_background": settings.TRANSPARENT_BACKGROUND,
                 "model": settings.OPENAI_MODEL,
-                "blender_executable": settings.BLENDER_EXECUTABLE,
+                "sticker_maker_executable": settings.STICKER_MAKER_EXECUTABLE,  # Changed from blender_executable
                 "hunyuan3d_api": settings.HUNYUAN3D_API_URL
             }
         }
         
-        logger.info(f"✅ Health check completed - Services: AI=✅, Blender={'✅' if blender_health else '❌'}, Hunyuan3D={'✅' if hunyuan_health else '❌'}")
+        logger.info(f"✅ Health check completed - Services: AI=✅, StickerMaker={'✅' if sticker_maker_health else '❌'}, Hunyuan3D={'✅' if hunyuan_health else '❌'}")
         
         return health_data
         
@@ -531,23 +683,24 @@ async def process_job(job_id: str):
         job_storage[job_id]["progress"]["3d_conversion"] = "completed"
         job_storage[job_id]["updated_at"] = datetime.now().isoformat()
         
-        # STEP 4: Blender Processing
-        logger.info(f"🎨 Step 4: Starting Blender processing for job {job_id}")
-        job_storage[job_id]["progress"]["blender_processing"] = "processing"
+        # STEP 4: Sticker Generation (replaces old Blender processing)
+        logger.info(f"🖨️ Step 4: Starting sticker generation for job {job_id}")
+        job_storage[job_id]["progress"]["sticker_generation"] = "processing"
         job_storage[job_id]["updated_at"] = datetime.now().isoformat()
-        
-        # Process 3D models into final starter pack
-        blender_result = await blender_processor.process_3d_models(
-            job_id=job_id,
-            models_3d=models_3d
-        )
-        
-        if not blender_result or not blender_result.get("success"):
-            raise Exception(f"Blender processing failed: {blender_result.get('error', 'Unknown error')}")
 
-        logger.info(f"✅ Step 4 completed: Blender processing successful")
-        job_storage[job_id]["progress"]["blender_processing"] = "completed"
-        job_storage[job_id]["updated_at"] = datetime.now().isoformat()
+        # Process 3D models into printable stickers
+        # This includes: Blender layout, 2D composition, boundary detection, DXF export
+        sticker_result = await sticker_maker.process_3d_models(
+            job_id=job_id,
+            models_3d=models_3d,
+            processed_images=processed_images  # Pass the nobg images
+        )
+
+        if not sticker_result or not sticker_result.get("success"):
+            raise Exception(f"Sticker generation failed: {sticker_result.get('error', 'Unknown error')}")
+
+        logger.info(f"✅ Step 4 completed: Sticker generation successful")
+        job_storage[job_id]["progress"]["sticker_generation"] = "completed"
         job_storage[job_id]["updated_at"] = datetime.now().isoformat()
         
         # FINAL: Update job with complete results
@@ -555,7 +708,8 @@ async def process_job(job_id: str):
             "generated_images": generated_images,
             "processed_images": processed_images,
             "models_3d": models_3d,
-            "blender_result": blender_result,
+            "sticker_result": sticker_result,  # Changed from blender_result
+            "blender_result": sticker_result,  # Keep for backwards compatibility with shopify_handler
             "total_images": len(generated_images),
             "total_3d_models": len(models_3d),
             "image_urls": [f"http://3.214.30.160:8000{img['url']}" for img in generated_images],
@@ -565,12 +719,12 @@ async def process_job(job_id: str):
                 "transparent_background": settings.TRANSPARENT_BACKGROUND,
                 "models_used": list(set([img.get("model_used", "unknown") for img in generated_images])),
                 "3d_models_generated": len(models_3d),
-                "blender_files": blender_result.get("output_files", [])
+                "sticker_files": sticker_result.get("output_files", [])  # Changed from blender_files
             },
             "download_links": {
                 "images": [img["url"] for img in generated_images],
                 "3d_models": [model.get("download_url") for model in models_3d if model.get("download_url")],
-                "final_files": [file_info.get("download_url") for file_info in blender_result.get("output_files", []) if file_info.get("download_url")]
+                "sticker_files": [file_info.get("download_url") for file_info in sticker_result.get("output_files", []) if file_info.get("download_url")]  # Changed from final_files
             }
         }
         
@@ -580,7 +734,7 @@ async def process_job(job_id: str):
         job_storage[job_id]["updated_at"] = datetime.now().isoformat()
         
         logger.info(f"🎉 Job {job_id} completed successfully!")
-        logger.info(f"📊 Final stats: {len(generated_images)} images, {len(models_3d)} 3D models, {len(blender_result.get('output_files', []))} final files")
+        logger.info(f"📊 Final stats: {len(generated_images)} images, {len(models_3d)} 3D models, {len(sticker_result.get('output_files', []))} sticker files")
         
     except Exception as e:
         # Handle errors
@@ -956,8 +1110,24 @@ async def download_keychain_blend_file(job_id: str):
     """Download keychain Blender file for shop owner"""
     if not shopify_handler:
         raise HTTPException(status_code=503, detail="Shopify handler not available")
-    
+
     return await shopify_handler.get_keychain_blend_download(job_id)
+
+@app.get("/shopify/download/{job_id}/card_printing_png")
+async def download_card_printing_png_file(job_id: str):
+    """Download card printing PNG file for shop owner"""
+    if not shopify_handler:
+        raise HTTPException(status_code=503, detail="Shopify handler not available")
+
+    return await shopify_handler.get_card_printing_png_download(job_id)
+
+@app.get("/shopify/download/{job_id}/keychain_printing_png")
+async def download_keychain_printing_png_file(job_id: str):
+    """Download keychain printing PNG file for shop owner"""
+    if not shopify_handler:
+        raise HTTPException(status_code=503, detail="Shopify handler not available")
+
+    return await shopify_handler.get_keychain_printing_png_download(job_id)
 
 @app.get("/shopify/health")
 async def shopify_health_check():

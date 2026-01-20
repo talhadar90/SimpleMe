@@ -55,7 +55,7 @@ namespace ImgDebugger
         private void dbPanel1_Paint(object sender, PaintEventArgs e)
         {
             var g = e.Graphics;
-            //g.ScaleTransform(0.6f, 0.6f);
+            g.ScaleTransform(0.6f, 0.6f);
             g.Clear(Color.Transparent);
             g.DrawImage(img, 0, 0, img.Width, img.Height);
             // draw points as pixels
