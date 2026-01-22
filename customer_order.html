@@ -187,6 +187,32 @@
             font-style: italic;
         }
 
+        .input-error {
+            border-color: #ef4444 !important;
+            background: #fef2f2 !important;
+        }
+
+        .error-hint {
+            color: #dc2626;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+
+        .error-hint.visible {
+            display: block;
+        }
+
+        .restricted-notice {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: #92400e;
+        }
+
         .loading-spinner {
             display: inline-block;
             width: 16px;
@@ -250,18 +276,24 @@
             <!-- Accessories -->
             <div class="form-group">
                 <label>Customize Your Accessories</label>
+                <div class="restricted-notice">
+                    ⚠️ <strong>Restricted:</strong> No currency items allowed (money, bills, coins, gold coins, crypto, treasure, etc.) due to content policy. Try alternatives like wallet, briefcase, or jewelry.
+                </div>
                 <div class="accessories-grid">
                     <div>
                         <input type="text" id="accessory1" name="accessory_1" placeholder="First accessory" required>
                         <div class="form-hint">e.g., sword, shield, helmet</div>
+                        <div class="error-hint" id="error1">Currency items are not allowed</div>
                     </div>
                     <div>
                         <input type="text" id="accessory2" name="accessory_2" placeholder="Second accessory" required>
                         <div class="form-hint">e.g., backpack, weapon, tool</div>
+                        <div class="error-hint" id="error2">Currency items are not allowed</div>
                     </div>
                     <div>
                         <input type="text" id="accessory3" name="accessory_3" placeholder="Third accessory" required>
                         <div class="form-hint">e.g., boots, gloves, cape</div>
+                        <div class="error-hint" id="error3">Currency items are not allowed</div>
                     </div>
                 </div>
             </div>
@@ -283,12 +315,69 @@
     </div>
 
     <script>
+        // Restricted currency keywords - comprehensive list
+        const CURRENCY_KEYWORDS = [
+            // Paper money
+            'dollar', 'dollars', 'bill', 'bills', 'money', 'cash', 'currency',
+            'hundred', '$100', '$50', '$20', '$10', '$5', '$1', 'banknote', 'banknotes',
+            'euro', 'euros', 'pound', 'pounds', 'yen', 'yuan', 'peso', 'rupee',
+            'franc', 'krona', 'won', 'real', 'lira', 'dinar', 'dirham', 'ruble',
+            'greenback', 'note', 'notes', 'tender', 'fiat',
+            // Coins
+            'coin', 'coins', 'penny', 'pennies', 'nickel', 'dime', 'quarter',
+            'cent', 'cents', 'buck', 'bucks', 'token', 'tokens',
+            // Gold/silver as currency
+            'gold coin', 'silver coin', 'gold coins', 'silver coins',
+            'doubloon', 'doubloons', 'sovereign', 'sovereigns',
+            // Crypto
+            'bitcoin', 'crypto', 'cryptocurrency', 'ethereum', 'btc', 'eth',
+            // General wealth
+            'wealth', 'riches', 'fortune', 'loot', 'treasure'
+        ];
+
+        // Check if text contains currency keywords
+        function containsCurrency(text) {
+            const lowerText = text.toLowerCase();
+            return CURRENCY_KEYWORDS.some(keyword => {
+                // Match whole words or at word boundaries
+                const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+                return regex.test(lowerText);
+            });
+        }
+
+        // Validate accessory input
+        function validateAccessory(inputId, errorId) {
+            const input = document.getElementById(inputId);
+            const error = document.getElementById(errorId);
+            const value = input.value.trim();
+
+            if (containsCurrency(value)) {
+                input.classList.add('input-error');
+                error.classList.add('visible');
+                return false;
+            } else {
+                input.classList.remove('input-error');
+                error.classList.remove('visible');
+                return true;
+            }
+        }
+
+        // Add real-time validation to accessory inputs
+        ['accessory1', 'accessory2', 'accessory3'].forEach((id, index) => {
+            document.getElementById(id).addEventListener('input', function() {
+                validateAccessory(id, `error${index + 1}`);
+            });
+            document.getElementById(id).addEventListener('blur', function() {
+                validateAccessory(id, `error${index + 1}`);
+            });
+        });
+
         // File upload handling
         document.getElementById('userImage').addEventListener('change', function(e) {
             const file = e.target.files[0];
             const fileText = document.getElementById('fileText');
             const fileInput = document.querySelector('.file-input');
-            
+
             if (file) {
                 fileText.textContent = `✅ ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
                 fileInput.classList.add('has-file');
@@ -305,6 +394,19 @@
 
             const submitBtn = document.getElementById('submitBtn');
             const messageDiv = document.getElementById('message');
+
+            // Validate all accessories for currency keywords
+            const valid1 = validateAccessory('accessory1', 'error1');
+            const valid2 = validateAccessory('accessory2', 'error2');
+            const valid3 = validateAccessory('accessory3', 'error3');
+
+            if (!valid1 || !valid2 || !valid3) {
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = '❌ <strong>Error:</strong> Currency items are not allowed. Please try alternatives like: wallet, briefcase, watch, jewelry, sunglasses, or bag.';
+                messageDiv.style.display = 'block';
+                messageDiv.scrollIntoView({ behavior: 'smooth' });
+                return;
+            }
 
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="loading-spinner"></span>Processing Order...';

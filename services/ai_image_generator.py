@@ -109,35 +109,119 @@ class AIImageGenerator:
 CHARACTER REQUIREMENTS:
 - Realistic facial features matching the person in the image (according to gender)
 - FULL BODY from head to feet - complete figure including legs, torso, arms, and head
-- Professional action figure proportions and pose
+- Professional action figure proportions
 - Show entire body standing - never cut off at waist, knees, or chest
 - High-quality textures and materials
-- Straight confident standing pose with both feet visible
+
+CLOTHING (CRITICAL):
+- NO TEXT on any clothing or garments - remove all logos, brand names, letters, numbers
+- NO logos, symbols, or graphic prints on shirts, pants, shoes, or accessories
+- Plain solid colors or simple patterns only (stripes, checks OK)
+- Clean, unbranded clothing aesthetic
+- If original clothing has text/logos, replace with plain solid color version
+
+POSE - EXTREMELY IMPORTANT - MUST FOLLOW EXACTLY:
+- A-pose ONLY: Arms STRAIGHT down, touching the sides of the thighs
+- Arms must be FULLY EXTENDED downward, NOT bent at elbows
+- Hands open with fingers pointing DOWN toward the ground, palms facing inward toward thighs
+- NO fists, NO gloves visible on hands, NO bent arms
+- Arms should form a straight vertical line from shoulder to fingertips
+- Standing like a wooden mannequin or store display dummy
+- Legs straight, feet together or slightly apart
+- Face forward, neutral expression
+- This is a NEUTRAL REFERENCE POSE for 3D scanning - absolutely NO action poses
+
+COMPOSITION:
 - Centered composition with full height of character visible
 - Complete figure from top of head to bottom of feet with no body parts cropped
-- Studio lighting with subtle shadows
+- Flat, even lighting with minimal shadows for 3D conversion
 - Action figure aesthetic with clean, defined details
 - Premium collectible quality
 - Portrait orientation layout showing the complete full-length figure
+- Pure transparent background
 
-CRITICAL: Must show COMPLETE FULL BODY - head, torso, arms, legs, and feet all visible. Never half body, never cropped at waist or knees."""
+CRITICAL: Arms STRAIGHT DOWN touching thighs. Hands OPEN, fingers pointing to floor. NO bent elbows. NO fists. NO text or logos on clothing. Like an action figure in original packaging - stiff neutral pose."""
+
+    def _stylize_currency_if_needed(self, accessory: str) -> tuple[str, bool]:
+        """
+        Detect currency-related terms and stylize to avoid 3D API content policy issues.
+
+        Returns:
+            tuple: (modified_accessory_description, was_stylized)
+        """
+        # Currency-related keywords to detect
+        currency_keywords = [
+            'dollar', 'dollars', 'bill', 'bills', 'money', 'cash', 'currency',
+            'hundred', '$100', '$50', '$20', '$10', '$1', 'banknote', 'banknotes',
+            'euro', 'euros', 'pound', 'pounds', 'yen', 'yuan', 'peso', 'rupee',
+            'franc', 'krona', 'won', 'real', 'lira', 'dinar', 'dirham'
+        ]
+
+        accessory_lower = accessory.lower()
+        is_currency = any(keyword in accessory_lower for keyword in currency_keywords)
+
+        if is_currency:
+            # Stylize the currency to be cartoon/game-style
+            stylized = f"stylized cartoon {accessory}, game asset style, illustrated NOT realistic currency, playful design with $ symbols"
+            print(f"💵 Detected currency in accessory, stylizing: '{accessory}' -> cartoon style")
+            return stylized, True
+
+        return accessory, False
 
     def _build_accessory_prompt(self, accessory: str) -> str:
-        """Build accessory prompt with technical specifications"""
-        return f"""Create a highly detailed 3D rendered {accessory}:
+        """Build accessory prompt with technical specifications for 3D conversion"""
+        # Check if this is currency and stylize if needed
+        stylized_accessory, was_stylized = self._stylize_currency_if_needed(accessory)
+
+        # Add extra stylization instructions for currency
+        currency_note = ""
+        if was_stylized:
+            currency_note = """
+CURRENCY STYLIZATION (CRITICAL):
+- Must be CARTOON/GAME STYLE - NOT realistic currency
+- Use bright, playful colors
+- Add visible $ or currency symbols
+- Make it look like video game money or Monopoly money
+- NO realistic portraits, serial numbers, or government seals
+"""
+
+        return f"""Create a highly detailed 3D rendered {stylized_accessory}:
 
 ACCESSORY REQUIREMENTS:
+- ONLY ONE single {stylized_accessory} in the image - no duplicates, no multiple items
 - Premium collectible quality design
-- Realistic textures and materials
-- Perfect for action figure use
+- Realistic textures and materials with visible surface details
+- Perfect for action figure scale/use
 - Modern detailed design with high-quality finish
-- Centered composition
-- Complete item visible with no cropping
-- Professional studio lighting
-- Clean, defined edges and details
+{currency_note}
+
+CAMERA ANGLE (CRITICAL FOR 3D CONVERSION):
+- FLAT LAY / TOP-DOWN view - camera looking straight down at the object
+- Object lying flat on surface, photographed from directly above
+- Shows the full shape and outline of the object clearly
+- NO perspective distortion - orthographic style view
+- Front face of the object should be visible and facing up
+
+LIGHTING (CRITICAL):
+- FLAT, even lighting with NO shadows
+- NO cast shadows on or around the object
+- NO ambient occlusion shadows
+- Soft, diffused light from all directions
+- No harsh highlights or dark areas
+- Pure transparent background with no gradients
+
+COMPOSITION (CRITICAL):
+- ONE accessory only - single item, not a set or collection
+- Centered in the middle of the image
+- Complete item visible with no cropping at all
+- Isolated item on pure transparent background
+- No other objects, props, or accessories in the scene
+- Clean, defined edges and silhouette
 - Vibrant colors with premium finish
 - High resolution and sharp details
-- Portrait orientation layout"""
+- Object should fill about 70% of the frame
+
+CRITICAL: Generate exactly ONE {stylized_accessory} - single item only, flat lay angle from above, NO SHADOWS, centered, complete, no duplicates."""
 
     async def _generate_from_user_image(self, job_id: str, user_image_path: str, prompt: str, image_type: str, 
                                        output_dir: str) -> Dict:

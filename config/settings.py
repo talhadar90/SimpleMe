@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     ALLOWED_IMAGE_TYPES: list = ["image/jpeg", "image/png", "image/webp"]
 
     # Hunyuan3D API Configuration
-    HUNYUAN3D_API_URL: str = "http://localhost:8081"  # Default local API
+    HUNYUAN3D_API_URL: str = "http://localhost:8080"  # Default local API
     HUNYUAN3D_TIMEOUT: int = 300  # 5 minutes timeout
     HUNYUAN3D_MAX_RETRIES: int = 20  # Max polling attempts
     HUNYUAN3D_RETRY_DELAY: int = 15  # Seconds between status checks
@@ -46,11 +46,21 @@ class Settings(BaseSettings):
     HUNYUAN3D_FACE_COUNT: int = 40000  # 40k for accessories, 50k for characters
     HUNYUAN3D_OUTPUT_FORMAT: str = "glb"  # glb, obj, ply
 
+    # 3D Provider Selection
+    THREED_PROVIDER: str = "tripo3d"  # "hunyuan" or "tripo3d"
+
+    # Tripo3D API Configuration (https://platform.tripo3d.ai)
+    TRIPO3D_API_KEY: str = "tsk_r6m7CO36bSgtmMR6jR-74PJ6H27nuB5R99HyQ3Qa09c"
+    TRIPO3D_MODEL_VERSION: str = "v3.0-20250812"  # Latest with ultra quality support
+    TRIPO3D_TIMEOUT: int = 300  # 5 minutes timeout
+    TRIPO3D_POLL_INTERVAL: int = 5  # Seconds between status checks
+    TRIPO3D_MAX_POLL_ATTEMPTS: int = 120  # Max polling attempts (10 minutes total)
+
     # Background Removal Configuration
     REMBG_MODEL: str = "u2net"  # u2net, u2net_human_seg, silueta, etc.
     BACKGROUND_REMOVAL_ENABLED: bool = True
-    COMFYUI_SERVER: str = "35.170.49.109:8188"  # ✅ Added type annotation
-    STATIC_FILES_URL: str = "http://35.170.49.109:8000"  # ✅ Added type annotation
+    COMFYUI_SERVER: str = "0na33lp2g43bh0-8188.proxy.runpod.net"
+    STATIC_FILES_URL: str = "http://localhost:8000"
 
     # Blender Configuration
     BLENDER_EXECUTABLE: str = "blender"  # Path to blender executable
@@ -58,11 +68,11 @@ class Settings(BaseSettings):
     BLENDER_HEADLESS: bool = True  # Run blender in headless mode
 
     # Sticker Maker Configuration (replaces old BlenderProcessor)
-    STICKER_MAKER_EXECUTABLE: str = "/home/ubuntu/SimpleMe/sticker_maker/PrintMaker"
-    STICKER_MAKER_WORKDIR: str = "/home/ubuntu/SimpleMe/sticker_maker"
+    STICKER_MAKER_EXECUTABLE: str = "/workspace/SimpleMe/sticker_maker/PrintMaker"
+    STICKER_MAKER_WORKDIR: str = "/workspace/SimpleMe/sticker_maker"
     STICKER_MAKER_DPI: int = 300  # Output DPI for printing
     STICKER_MAKER_MIN_SIZE_MM: float = 10.0  # Minimum sticker size in square mm
-    STICKER_MAKER_CUT_MARGIN_MM: float = 1.0  # Extra cut margin (bleed) in mm
+    STICKER_MAKER_CUT_MARGIN_MM: float = 0.0  # Extra cut margin (bleed) in mm - set to 0 for no bleed
     STICKER_MAKER_CUT_SMOOTHING: int = 10  # Smoothing iterations for cut paths
     STICKER_MAKER_TIMEOUT: int = 300  # 5 minutes timeout for sticker generation
 

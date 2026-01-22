@@ -502,7 +502,102 @@ def sink_into_card(obj, card_obj, max_fraction=1.0/3.0):
     # now sink by 'sink'
     obj.location.z -= sink
     bpy.context.view_layer.update()
+
+def sink_further_and_cut_protrusion(obj, card_obj, fraction=1.0/5.0):
+    """
+    Push object further into card by a fraction of its height in Z,
+    then cut away any part that protrudes below the card bottom.
+    """
+    # Get object dimensions (current height in Z)
+    d = world_dims(obj)
+    obj_h = float(d.z)
+    if obj_h <= 0.0:
+        return
     
+    # Get object's world position and bounds
+    obj_mn, obj_mx = world_aabb(obj)
+    obj_pos = world_center(obj)
+    
+    # Get card boundaries
+    card_mn, card_mx = world_aabb(card_obj)
+    card_bottom = float(card_mn.z)  # Negative value since card top is at Z=0
+    card_top = float(card_mx.z)     # Should be 0
+    
+    # Push down by fraction of object height
+    sink_amount = obj_h * float(fraction)
+    obj.location.z -= sink_amount
+    bpy.context.view_layer.update()
+    
+    # Now check if any part is below card bottom
+    obj_mn, obj_mx = world_aabb(obj)
+    obj_bottom = float(obj_mn.z)
+    
+    if obj_bottom < card_bottom:
+        # Object protrudes below card - need to cut it
+        print(f"Object protrudes below card: obj_bottom={obj_bottom:.3f}, card_bottom={card_bottom:.3f}")
+        
+        # Calculate how much protrudes
+        protrusion_depth = card_bottom - obj_bottom  # Positive value (how much is below)
+        
+        # Get object's current bounding box in XY
+        obj_minx = float(obj_mn.x)
+        obj_maxx = float(obj_mx.x)
+        obj_miny = float(obj_mn.y)
+        obj_maxy = float(obj_mx.y)
+        
+        # Calculate cutter dimensions with margin
+        margin = 2.0  # mm margin on all sides
+        cutter_width = (obj_maxx - obj_minx) + margin * 2
+        cutter_length = (obj_maxy - obj_miny) + margin * 2
+        
+        # Cutter should be thick enough to cover all protrusion plus margin
+        cutter_thickness = protrusion_depth + margin * 2  # Add margin above and below
+        
+        # Position cutter at the same XY center as the object, but at the cutting plane
+        # We want the cutter to extend from below the protruding part to above the card bottom
+        cutter_x = (obj_minx + obj_maxx) / 2.0
+        cutter_y = (obj_miny + obj_maxy) / 2.0
+        cutter_z = card_bottom - (protrusion_depth / 2.0) - margin  # Center of cutter
+        
+        # Create a cube for cutting - default cube is 2x2x2 (vertices at ±1)
+        bpy.ops.mesh.primitive_cube_add(
+            size=2.0,  # This creates a 2x2x2 cube
+            location=(cutter_x, cutter_y, cutter_z)
+        )
+        cutter = bpy.context.active_object
+        cutter.name = "_ProtrusionCutter"
+        
+        # Scale cutter to match object's XY footprint plus margin, and thickness for protrusion
+        # Since cube is 2x2x2, we need to scale by half the desired dimensions
+        cutter.scale.x = cutter_width / 2.0
+        cutter.scale.y = cutter_length / 2.0
+        cutter.scale.z = cutter_thickness / 2.0
+        
+        # Apply scale
+        select_only(cutter)
+        bpy.ops.object.transform_apply(scale=True)
+        
+        print(f"Cutter created at ({cutter_x:.2f}, {cutter_y:.2f}, {cutter_z:.2f})")
+        print(f"Cutter dimensions: {cutter_width:.2f}x{cutter_length:.2f}x{cutter_thickness:.2f}")
+        print(f"Object bounds: X[{obj_minx:.2f}, {obj_maxx:.2f}], Y[{obj_miny:.2f}, {obj_maxy:.2f}]")
+        
+        # Apply boolean difference to cut protruding part
+        bool_mod = obj.modifiers.new(name="CutProtrusion", type='BOOLEAN')
+        bool_mod.operation = 'DIFFERENCE'
+        bool_mod.solver = 'EXACT'
+        bool_mod.object = cutter
+        
+        # Apply the modifier
+        select_only(obj)
+        bpy.ops.object.modifier_apply(modifier=bool_mod.name)
+        
+        # Clean up cutter
+        bpy.data.objects.remove(cutter, do_unlink=True)
+        
+        print(f"Cut away {protrusion_depth:.2f}mm of protruding part below card")
+    
+    bpy.context.view_layer.update()
+
 def snap_bottom_to_base_top(obj, base_obj, z_offset: float = 0.0):
     """
     Move 'obj' along Z so its *bottom* (minZ) sits exactly on the *top* (maxZ)
@@ -691,6 +786,28 @@ def roll_about_parallel_world_x(obj, degrees: float = 90.0):
     c = world_center(obj)                            # pivot in world coords
     T = Matrix.Translation(c)
     R = Matrix.Rotation(radians(degrees), 4, 'X')    # axis parallel to world X
+    obj.matrix_world = T @ R @ T.inverted() @ obj.matrix_world
+    bpy.context.view_layer.update()
+
+def rotate_about_world_z(obj, degrees: float = 90.0):
+    """
+    Rotate obj by +degrees about the world Z axis, pivoted at object's center.
+    Use this to correct yaw/facing direction of Tripo3D models.
+    """
+    c = world_center(obj)                            # pivot in world coords
+    T = Matrix.Translation(c)
+    R = Matrix.Rotation(radians(degrees), 4, 'Z')    # axis parallel to world Z
+    obj.matrix_world = T @ R @ T.inverted() @ obj.matrix_world
+    bpy.context.view_layer.update()
+
+def rotate_about_world_y(obj, degrees: float = -90.0):
+    """
+    Rotate obj by +degrees about the world Y axis, pivoted at object's center.
+    Use this to correct Tripo3D models for top-down rendering.
+    """
+    c = world_center(obj)                            # pivot in world coords
+    T = Matrix.Translation(c)
+    R = Matrix.Rotation(radians(degrees), 4, 'Y')    # axis parallel to world Y
     obj.matrix_world = T @ R @ T.inverted() @ obj.matrix_world
     bpy.context.view_layer.update()
 
@@ -1543,12 +1660,12 @@ def main():
     # Figure
     fig = import_model_with_textures(args.figure, "Figure")
     slot_depth = 10000
-    if fig:        
-        needs_roll = needs_x_roll(fig)
+    if fig:
         apply_xforms(fig)
-        if needs_roll:
-            roll_about_parallel_world_x(fig, -90)
-        
+        # Rotate for Tripo3D models - top-down render orientation fix
+        rotate_about_world_y(fig, -90)  # R+Y -90
+        rotate_about_world_z(fig, -90)  # R+Z -90
+
         # orient_object(fig, head_bias=True)          # main character
         center_xy(fig);             # center before fitting
         rest_on_z0(fig)             # put on the card top plane (Z=0)
@@ -1557,7 +1674,8 @@ def main():
         fig.location.x = left_x_center
         fig.location.y = lower_y_center
         snap_bottom_to_base_top(fig, card)          # just touching the card
-        sink_into_card(fig, card, max_fraction=1.0/3.0)
+        sink_into_card(fig, card, max_fraction=1.0/3.0 + 0.15)  # 33% + 15% = 48%
+        sink_further_and_cut_protrusion(fig, card)       # Second sinking + cut
         bpy.context.view_layer.update()
 
     # Accessories
@@ -1573,9 +1691,10 @@ def main():
         acc = import_model_with_textures(path, f"Accessory_{i+1}")
         if not acc: continue
         apply_xforms(acc)
-        if needs_roll:
-            roll_about_parallel_world_x(acc, -90)
-            
+        # Rotate for Tripo3D models - top-down render orientation fix
+        rotate_about_world_y(acc, -90)  # R+Y -90
+        rotate_about_world_z(acc, -90)  # R+Z -90
+
         center_xy(acc); rest_on_z0(acc)
         # fit inside a square cell of height acc_cell_h and width acc_slot_w
         uniform_fit(acc, acc_slot_w, acc_cell_h, margin=args.margin_accessories, target_d=slot_depth)
@@ -1583,7 +1702,7 @@ def main():
         acc.location.x = right_x_center
         acc.location.y = centers_y[i]
         snap_bottom_to_base_top(acc, card)          # just touching the card
-        sink_into_card(acc, card, max_fraction=1.0/3.0)
+        sink_into_card(acc, card, max_fraction=1.0/3.0 + 0.15)  # 33% + 15% = 48%
         bpy.context.view_layer.update()
         acc_objs.append(acc)
 

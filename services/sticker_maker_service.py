@@ -11,8 +11,8 @@ try:
     from config.settings import settings
 except ImportError:
     class Settings:
-        STICKER_MAKER_EXECUTABLE = "/home/ubuntu/SimpleMe/sticker_maker/PrintMaker"
-        STICKER_MAKER_WORKDIR = "/home/ubuntu/SimpleMe/sticker_maker"
+        STICKER_MAKER_EXECUTABLE = "/workspace/SimpleMe/sticker_maker/PrintMaker"
+        STICKER_MAKER_WORKDIR = "/workspace/SimpleMe/sticker_maker"
         STICKER_MAKER_DPI = 300
         STICKER_MAKER_MIN_SIZE_MM = 10.0
         STICKER_MAKER_CUT_MARGIN_MM = 1.0
@@ -142,10 +142,10 @@ class StickerMakerService:
         ├── accessory_1_3d.glb
         ├── accessory_2_3d.glb
         ├── accessory_3_3d.glb
-        ├── base_character_2d.png
-        ├── accessory_1_2d.png
-        ├── accessory_2_2d.png
-        └── accessory_3_2d.png
+        ├── base_character_r2d.png
+        ├── accessory_1_r2d.png
+        ├── accessory_2_r2d.png
+        └── accessory_3_r2d.png
 
         Args:
             job_id: Job identifier
@@ -283,10 +283,10 @@ class StickerMakerService:
             Dict mapping expected names to source paths
         """
         image_map = {
-            'base_character_2d.png': None,
-            'accessory_1_2d.png': None,
-            'accessory_2_2d.png': None,
-            'accessory_3_2d.png': None
+            'base_character_r2d.png': None,
+            'accessory_1_r2d.png': None,
+            'accessory_2_r2d.png': None,
+            'accessory_3_r2d.png': None
         }
 
         for img_data in processed_images:
@@ -297,15 +297,15 @@ class StickerMakerService:
             if not img_path or not os.path.exists(img_path):
                 continue
 
-            # Map to expected names
+            # Map to expected names (_r2d.png format for PrintMaker)
             if 'base_character' in img_type.lower():
-                image_map['base_character_2d.png'] = img_path
+                image_map['base_character_r2d.png'] = img_path
             elif 'accessory_1' in img_type.lower():
-                image_map['accessory_1_2d.png'] = img_path
+                image_map['accessory_1_r2d.png'] = img_path
             elif 'accessory_2' in img_type.lower():
-                image_map['accessory_2_2d.png'] = img_path
+                image_map['accessory_2_r2d.png'] = img_path
             elif 'accessory_3' in img_type.lower():
-                image_map['accessory_3_2d.png'] = img_path
+                image_map['accessory_3_r2d.png'] = img_path
 
         return image_map
 
@@ -422,17 +422,18 @@ class StickerMakerService:
             logger.info(f"   Destination: {dest_dir}")
 
             output_files = []
+            # Mapping: source_name -> (destination_name, file_type)
             file_mapping = {
-                'card_printing.png': 'card_printing_file',
-                'card_reference.png': 'card_reference_file',
-                'card_cutting.dxf': 'card_cutting_dxf',
-                'card_model.stl': 'starter_pack_stl',
-                'card_model.blend': 'starter_pack_blend',
-                'keychain_printing.png': 'keychain_printing_file',
-                'keychain_reference.png': 'keychain_reference_file',
-                'keychain_cutting.dxf': 'keychain_cutting_dxf',
-                'keychain_model.stl': 'keychain_stl',
-                'keychain_model.blend': 'keychain_blend'
+                'card_main.png': ('card_printing.png', 'card_printing_file'),
+                'card_reference.png': ('card_reference.png', 'card_reference_file'),
+                'card_cutting.dxf': ('card_cutting.dxf', 'card_cutting_dxf'),
+                'card_model.stl': ('card_model.stl', 'starter_pack_stl'),
+                'card_model.blend': ('card_model.blend', 'starter_pack_blend'),
+                'keychain_main.png': ('keychain_printing.png', 'keychain_printing_file'),
+                'keychain_reference.png': ('keychain_reference.png', 'keychain_reference_file'),
+                'keychain_cutting.dxf': ('keychain_cutting.dxf', 'keychain_cutting_dxf'),
+                'keychain_model.stl': ('keychain_model.stl', 'keychain_stl'),
+                'keychain_model.blend': ('keychain_model.blend', 'keychain_blend')
             }
 
             result = {
@@ -441,35 +442,35 @@ class StickerMakerService:
                 'output_files': []
             }
 
-            for src_name, file_type in file_mapping.items():
+            for src_name, (dst_name, file_type) in file_mapping.items():
                 src_path = os.path.join(out_dir, src_name)
-                dst_path = os.path.join(dest_dir, src_name)
+                dst_path = os.path.join(dest_dir, dst_name)
 
                 if os.path.exists(src_path):
-                    # Copy file to storage
+                    # Copy file to storage (with potential rename)
                     shutil.copy2(src_path, dst_path)
 
                     # Get file info
                     file_size = os.path.getsize(dst_path)
-                    file_ext = os.path.splitext(src_name)[1]
+                    file_ext = os.path.splitext(dst_name)[1]
 
                     file_info = {
-                        'filename': src_name,
+                        'filename': dst_name,
                         'file_path': dst_path,
                         'file_extension': file_ext,
                         'file_size_bytes': file_size,
                         'file_size_mb': round(file_size / (1024 * 1024), 2),
                         'file_type': file_type,
-                        'download_url': f"/storage/processed/{job_id}/stickers/{src_name}",
+                        'download_url': f"/storage/processed/{job_id}/stickers/{dst_name}",
                         'created_at': datetime.now().isoformat()
                     }
 
                     output_files.append(file_info)
                     result[file_type] = dst_path
 
-                    logger.info(f"   ✅ Collected: {src_name} ({file_info['file_size_mb']} MB)")
+                    logger.info(f"   ✅ Collected: {src_name} -> {dst_name} ({file_info['file_size_mb']} MB)")
                 else:
-                    logger.warning(f"   ⚠️ Output file not found: {src_path}")
+                    logger.warning(f"   ⚠️ Source file not found: {src_path}")
 
             result['output_files'] = output_files
 

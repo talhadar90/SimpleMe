@@ -157,7 +157,7 @@ class Program
                 cuttingMargin_mm: cuttingMargin_mm * 0.3F,
                 minStickerSizes_smm: minStickerSizes_smm * 0.3F,
                 width: 130 * 0.3F,
-                height: 190 * 0.3F,
+                height: 170 * 0.3F,
                 thickness: 2,
                 hasHole: true,
                 textHeight: 7,
@@ -171,7 +171,7 @@ class Program
                 layoutOnly: false,
                 renderResx: 2000,
                 renderResy: 2000,
-                dontCreateBoundaries: false
+                dontCreateBoundaries: true
                 ),
 
             CreateAll(
@@ -184,7 +184,7 @@ class Program
                 cuttingMargin_mm: cuttingMargin_mm,
                 minStickerSizes_smm: minStickerSizes_smm,
                 width: 130,
-                height: 190,
+                height: 170,
                 thickness: 5,
                 hasHole: false,
                 textHeight: 30,
@@ -198,7 +198,7 @@ class Program
                 layoutOnly: false,
                 renderResx: 3000,
                 renderResy: 3000,
-                dontCreateBoundaries: false),
+                dontCreateBoundaries: true),
 
             };
 
@@ -209,7 +209,7 @@ class Program
                 outDir: outDir,
                 dpi: dpi,
                 cardWidth: 130,  // Use your actual card width
-                cardHeight: 190, // Use your actual card height
+                cardHeight: 170, // Use your actual card height
                 borderSize: 50   // Tune this value based on your render
             );
 
@@ -219,7 +219,7 @@ class Program
                 outDir: outDir,
                 dpi: dpi,
                 cardWidth: 130 * 0.3f,
-                cardHeight: 190 * 0.3f,
+                cardHeight: 170 * 0.3f,
                 borderSize: 15   // Scaled down for keychain
             );
             return 0;
@@ -263,24 +263,14 @@ class Program
 );
         if (dontCreateBoundaries)
             return;
-        Console.WriteLine("Loading Blender scene render");
-        // Use the Blender scene render instead of composing from 2D PNGs
-        string sceneRenderPath = Path.Combine(inDir, nameSeed + "_scene_render.png");
-        if (!File.Exists(sceneRenderPath))
-        {
-            Console.WriteLine($"ERROR: Scene render not found: {sceneRenderPath}");
-            return;
-        }
-
-        using var sceneRenderOrg = await Image.LoadAsync<Rgba32>(sceneRenderPath);
-
-        // Crop by transparency to remove excess borders (Blender renders square but card is rectangular)
-        var composedImage = CropByTransparency(sceneRenderOrg, 10);
-
-        // Set DPI metadata (don't resize - Blender already rendered at correct scale)
-        composedImage.Metadata.HorizontalResolution = dpi;
-        composedImage.Metadata.VerticalResolution = dpi;
-        composedImage.Metadata.ResolutionUnits = SixLabors.ImageSharp.Metadata.PixelResolutionUnit.PixelsPerInch;
+        Console.WriteLine("Composing priting image");
+        // result is your LayoutPayload from Blender
+        var composedImage = await ComposeAsync(
+            layout: result,
+            imagesDir: inDir,
+            dpi: dpi,
+            layoutOnly: layoutOnly
+        );
 
         Console.Write("Computing cutting path");
         var boundaries = new List<BoundaryInfo>();
@@ -659,29 +649,29 @@ Assumptions: under jobs/<id>/in (relative to --workdir) we read a main model fig
     private static string ResolveImagePath(string imagesDir, string itemName)
     {
         // Examples:
-        // name: "figure" -> images\base_character_2d.png
-        // name: "accessory_1" -> images\accessory_1_2d.png
-        // name: "accessory_2" -> images\accessory_2_2d.png
+        // name: "figure" -> images\base_character_r2d.png
+        // name: "accessory_1" -> images\accessory_1_r2d.png
+        // name: "accessory_2" -> images\accessory_2_r2d.png
         // If the Blender names differ (e.g., "acc1"), tweak the parsing here.
 
         var name = itemName.Trim().ToLowerInvariant();
 
         if (name.Contains("figure"))
-            return Path.Combine(imagesDir, "base_character_2d.png");
+            return Path.Combine(imagesDir, "base_character_r2d.png");
 
         if (name.StartsWith("accessory_"))
         {
             // pull the trailing index
             var idxPart = name.Substring("accessory_".Length);
-            return Path.Combine(imagesDir, $"accessory_{idxPart}_2d.png");
+            return Path.Combine(imagesDir, $"accessory_{idxPart}_r2d.png");
         }
         if (name == "textgroup")
         {
             return Path.Combine(imagesDir, $"TextGroup.png");
         }
 
-        // Fallback: try "<name>_2d.png"
-        return Path.Combine(imagesDir, $"{name}_2d.png");
+        // Fallback: try "<name>_r2d.png"
+        return Path.Combine(imagesDir, $"{name}_r2d.png");
     }
 
     /// <summary>

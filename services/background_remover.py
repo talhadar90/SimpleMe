@@ -21,7 +21,13 @@ class ComfyUIBackgroundRemover:
         except:
             self.server_address = "35.170.49.109:8188"
             self.static_url_base = "http://35.170.49.109:8000"
-        
+
+        # Use HTTPS for RunPod proxy URLs
+        if "proxy.runpod.net" in self.server_address:
+            self.protocol = "https"
+        else:
+            self.protocol = "http"
+
         self.client_id = str(uuid.uuid4())
         self.workflow = {
             "10": {
@@ -269,7 +275,7 @@ class ComfyUIBackgroundRemover:
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"http://{self.server_address}/prompt",
+                    f"{self.protocol}://{self.server_address}/prompt",
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
@@ -322,7 +328,7 @@ class ComfyUIBackgroundRemover:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    f"http://{self.server_address}/history/{prompt_id}",
+                    f"{self.protocol}://{self.server_address}/history/{prompt_id}",
                     timeout=aiohttp.ClientTimeout(total=10)
                 ) as response:
                     if response.status == 200:
@@ -380,7 +386,7 @@ class ComfyUIBackgroundRemover:
             
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    f"http://{self.server_address}/view",
+                    f"{self.protocol}://{self.server_address}/view",
                     params=params,
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
@@ -442,7 +448,7 @@ class ComfyUIBackgroundRemover:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
-                    f"http://{self.server_address}/",
+                    f"{self.protocol}://{self.server_address}/",
                     timeout=aiohttp.ClientTimeout(total=5)
                 ) as response:
                     return response.status == 200

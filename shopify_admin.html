@@ -406,7 +406,30 @@
                 const regularJobs = (jobsData.jobs || []).map(job => {
                     // Safely access nested properties and build download URLs
                     let downloadUrls = {};
+                    const jobId = job.job_id;
 
+                    // For completed jobs, provide URLs from PrintMaker output folder
+                    if (job.status === 'completed') {
+                        downloadUrls = {
+                            // STL files
+                            stl_download_url: `/sticker_jobs/${jobId}/out/card_model.stl`,
+                            keychain_stl_download_url: `/sticker_jobs/${jobId}/out/keychain_model.stl`,
+                            // Blend files
+                            starter_pack_blend_download_url: `/sticker_jobs/${jobId}/out/card_model.blend`,
+                            keychain_blend_download_url: `/sticker_jobs/${jobId}/out/keychain_model.blend`,
+                            // Print files (main.png)
+                            card_printing_png_download_url: `/sticker_jobs/${jobId}/out/card_main.png`,
+                            keychain_printing_png_download_url: `/sticker_jobs/${jobId}/out/keychain_main.png`,
+                            // Reference files
+                            card_reference_png_download_url: `/sticker_jobs/${jobId}/out/card_reference.png`,
+                            keychain_reference_png_download_url: `/sticker_jobs/${jobId}/out/keychain_reference.png`,
+                            // Markers files
+                            card_markers_png_download_url: `/sticker_jobs/${jobId}/out/card_markers.png`,
+                            keychain_markers_png_download_url: `/sticker_jobs/${jobId}/out/keychain_markers.png`
+                        };
+                    }
+
+                    // Override with actual file URLs from result if available
                     if (job.result && job.result.sticker_result) {
                         const outputFiles = job.result.sticker_result.output_files;
                         if (outputFiles && Array.isArray(outputFiles)) {
@@ -423,6 +446,10 @@
                                     downloadUrls.card_printing_png_download_url = file.download_url;
                                 } else if (file.filename === 'keychain_printing.png') {
                                     downloadUrls.keychain_printing_png_download_url = file.download_url;
+                                } else if (file.filename === 'card_reference.png') {
+                                    downloadUrls.card_reference_png_download_url = file.download_url;
+                                } else if (file.filename === 'keychain_reference.png') {
+                                    downloadUrls.keychain_reference_png_download_url = file.download_url;
                                 }
                             });
                         }
@@ -587,6 +614,38 @@
                                            download
                                            style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #14b8a6;">
                                             🖨️ Keychain Print PNG
+                                        </a>` : ''
+                                    }
+                                    ${order.card_reference_png_download_url ?
+                                        `<a href="${API_BASE}${order.card_reference_png_download_url}"
+                                           class="download-btn"
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #0ea5e9;">
+                                            📋 Card Reference PNG
+                                        </a>` : ''
+                                    }
+                                    ${order.keychain_reference_png_download_url ?
+                                        `<a href="${API_BASE}${order.keychain_reference_png_download_url}"
+                                           class="download-btn"
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #06b6d4;">
+                                            📋 Keychain Reference PNG
+                                        </a>` : ''
+                                    }
+                                    ${order.card_markers_png_download_url ?
+                                        `<a href="${API_BASE}${order.card_markers_png_download_url}"
+                                           class="download-btn"
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #a855f7;">
+                                            🎯 Card Markers PNG
+                                        </a>` : ''
+                                    }
+                                    ${order.keychain_markers_png_download_url ?
+                                        `<a href="${API_BASE}${order.keychain_markers_png_download_url}"
+                                           class="download-btn"
+                                           download
+                                           style="font-size: 0.65rem; padding: 0.25rem 0.5rem; background: #d946ef;">
+                                            🎯 Keychain Markers PNG
                                         </a>` : ''
                                     }
                                 </div>` :

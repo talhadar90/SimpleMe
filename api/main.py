@@ -14,7 +14,7 @@ import asyncio
 
 # Import our services
 from services.ai_image_generator import AIImageGenerator
-from services.hunyuan3d_client import Hunyuan3DClient
+from services.threed_client_factory import create_3d_client
 from services.sticker_maker_service import StickerMakerService  # Replaced BlenderProcessor
 from config.settings import settings
 from fastapi.staticfiles import StaticFiles
@@ -50,6 +50,7 @@ app.add_middleware(
 # Mount static files to serve generated images
 app.mount("/storage", StaticFiles(directory="storage"), name="storage")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/sticker_jobs", StaticFiles(directory="sticker_maker/jobs"), name="sticker_jobs")
 
 # Pydantic models
 class JobSubmissionResponse(BaseModel):
@@ -80,10 +81,10 @@ except Exception as e:
     raise
 
 try:
-    hunyuan3d_client = Hunyuan3DClient()
-    logger.info("✅ Hunyuan3D Client initialized")
+    threed_client = create_3d_client()
+    logger.info(f"✅ 3D Client initialized (provider: {settings.THREED_PROVIDER})")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize Hunyuan3D Client: {e}")
+    logger.error(f"❌ Failed to initialize 3D Client: {e}")
     raise
 
 try:
@@ -268,7 +269,7 @@ async def startup_event():
     
     # Check Hunyuan3D API
     try:
-        hunyuan_ok = await hunyuan3d_client.health_check()
+        hunyuan_ok = await threed_client.health_check()
         if hunyuan_ok:
             logger.info("✅ Hunyuan3D API health check passed")
         else:
@@ -282,17 +283,17 @@ async def startup_event():
 @app.get("/")
 async def root():
     """Serve the main HTML page"""
-    return FileResponse('/home/ubuntu/SimpleMe/index.html')
+    return FileResponse('/workspace/SimpleMe/index.html')
 
 @app.get("/styles.css")
 async def get_styles():
     """Serve CSS file"""
-    return FileResponse('/home/ubuntu/SimpleMe/styles.css', media_type='text/css')
+    return FileResponse('/workspace/SimpleMe/styles.css', media_type='text/css')
 
 @app.get("/script.js")
 async def get_script():
     """Serve JavaScript file"""
-    return FileResponse('/home/ubuntu/SimpleMe/script.js', media_type='application/javascript')
+    return FileResponse('/workspace/SimpleMe/script.js', media_type='application/javascript')
 
 @app.post("/submit-job", response_model=JobSubmissionResponse)
 async def submit_job(
@@ -482,7 +483,7 @@ async def health_check():
     try:
         # Check service health
         sticker_maker_health = await sticker_maker.health_check()
-        hunyuan_health = await hunyuan3d_client.health_check()
+        hunyuan_health = await threed_client.health_check()
 
         health_data = {
             "status": "healthy",
@@ -493,7 +494,7 @@ async def health_check():
             "services": {
                 "ai_generator": "healthy",
                 "sticker_maker": "healthy" if sticker_maker_health else "unhealthy",  # Changed from blender_processor
-                "hunyuan3d_client": "healthy" if hunyuan_health else "unhealthy"
+                "threed_client": "healthy" if hunyuan_health else "unhealthy"
             },
             "config": {
                 "image_size": settings.IMAGE_SIZE,
@@ -659,7 +660,7 @@ async def process_job(job_id: str):
                 
                 # Generate 3D model
                 output_dir = os.path.join(settings.GENERATED_PATH, job_id)
-                model_3d = await hunyuan3d_client.generate_3d_model(
+                model_3d = await threed_client.generate_3d_model(
                     image_path=img_data["processed_path"],
                     job_id=job_id
                 )
@@ -823,7 +824,7 @@ async def test_services():
     test_results = {
         "timestamp": datetime.now().isoformat(),
         "ai_generator": {"status": "unknown", "details": {}},
-        "hunyuan3d_client": {"status": "unknown", "details": {}},
+        "threed_client": {"status": "unknown", "details": {}},
         "blender_processor": {"status": "unknown", "details": {}}
     }
     
@@ -847,8 +848,8 @@ async def test_services():
     # Test Hunyuan3D Client
     try:
         logger.info("🧪 Testing Hunyuan3D Client...")
-        hunyuan_health = await hunyuan3d_client.health_check()
-        test_results["hunyuan3d_client"] = {
+        hunyuan_health = await threed_client.health_check()
+        test_results["threed_client"] = {
             "status": "healthy" if hunyuan_health else "unhealthy",
             "details": {
                 "api_url": settings.HUNYUAN3D_API_URL,
@@ -863,7 +864,7 @@ async def test_services():
         logger.info(f"{'✅' if hunyuan_health else '❌'} Hunyuan3D test {'passed' if hunyuan_health else 'failed'}")
     except Exception as e:
         logger.error(f"❌ Hunyuan3D test failed: {e}")
-        test_results["hunyuan3d_client"] = {
+        test_results["threed_client"] = {
             "status": "failed",
             "details": {"error": str(e)}
         }
@@ -1143,12 +1144,12 @@ async def shopify_health_check():
 @app.get("/admin")
 async def shopify_admin_dashboard():
     """Serve the Shopify admin dashboard"""
-    return FileResponse('/home/ubuntu/SimpleMe/shopify_admin.html')
+    return FileResponse('/workspace/SimpleMe/shopify_admin.html')
 
 @app.get("/order")
 async def customer_order_page():
     """Serve the customer order page"""
-    return FileResponse('/home/ubuntu/SimpleMe/customer_order.html')
+    return FileResponse('/workspace/SimpleMe/customer_order.html')
 
 @app.post("/shopify/test-order")
 async def create_test_shopify_order(

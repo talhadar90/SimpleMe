@@ -91,3 +91,25 @@ CustomStarterPack2/.vs/
 # Blender temp files
 *.blend1
 *.blend2
+*.blend
+
+# 3D model files
+*.stl
+*.glb
+*.gltf
+*.obj
+*.fbx
+*.dxf
+
+# Image files
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+
+# Sticker maker jobs
+sticker_maker/jobs/
+
+# Nested git repos
+CustomStarterPack2/.git/

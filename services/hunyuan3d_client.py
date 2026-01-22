@@ -267,8 +267,8 @@ class Hunyuan3DClient:
                     print(f"❌ Task {task_id} failed: {error}")
                     return None
                     
-                elif status in ['queued', 'processing']:
-                    # Still processing, wait and retry
+                elif status in ['queued', 'processing', 'texturing']:
+                    # Still processing (texturing is the final phase before completed)
                     await asyncio.sleep(self.retry_delay)
                     attempt += 1
                     continue
@@ -425,13 +425,30 @@ class Hunyuan3DClient:
 
     async def health_check(self) -> bool:
         """Check if Hunyuan3D API is healthy
-        
+
         Returns:
-            True if API is responding
+            True if API is responding with valid JSON
         """
         try:
             response = await self.client.get(f"{self.base_url}/health")
-            return response.status_code == 200
+            if response.status_code != 200:
+                print(f"❌ Hunyuan3D health check failed: status {response.status_code}")
+                return False
+
+            # Verify it's actually the Hunyuan3D API responding (not nginx 502 page)
+            try:
+                data = response.json()
+                # Check for expected fields in health response
+                if "status" in data or "worker_id" in data:
+                    return True
+                else:
+                    print(f"❌ Hunyuan3D health check failed: unexpected response format")
+                    return False
+            except Exception:
+                # Response is not JSON (likely nginx error page)
+                print(f"❌ Hunyuan3D health check failed: response is not JSON (service may not be running)")
+                return False
+
         except Exception as e:
             print(f"❌ Hunyuan3D health check failed: {str(e)}")
             return False
