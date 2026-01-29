@@ -169,8 +169,8 @@ class Program
                 title: title,
                 subtitle: subtitle,
                 layoutOnly: false,
-                renderResx: 2000,
-                renderResy: 2000,
+                renderResx: (int)(130 * 0.3 / 25.4 * dpi),  // Calculate from keychain width and DPI
+                renderResy: (int)(170 * 0.3 / 25.4 * dpi),  // Calculate from keychain height and DPI
                 dontCreateBoundaries: true
                 ),
 
@@ -196,8 +196,8 @@ class Program
                 title: title,
                 subtitle: subtitle,
                 layoutOnly: false,
-                renderResx: 3000,
-                renderResy: 3000,
+                renderResx: (int)(130 / 25.4 * dpi),  // Calculate from card width and DPI
+                renderResy: (int)(170 / 25.4 * dpi),  // Calculate from card height and DPI
                 dontCreateBoundaries: true),
 
             };
@@ -236,7 +236,7 @@ class Program
         var result = await BlenderLayoutRunner.RunAsync(
     new BlenderLayoutRunner.BlenderLayoutOptions(
         BlenderExe: @"blender",
-        ScriptPath: @"blender2.py",
+        ScriptPath: Path.Combine(AppContext.BaseDirectory, "blender2.py"),
         Figure: Path.Combine(inDir, "base_character_3d.glb"),
         Acc: new[] { Path.Combine(inDir, "accessory_1_3d.glb"), Path.Combine(inDir, "accessory_2_3d.glb"), Path.Combine(inDir, "accessory_3_3d.glb") },
         CardWidth: width,

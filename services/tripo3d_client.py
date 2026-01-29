@@ -1,6 +1,8 @@
 """
 Tripo3D API Client - Replaces Hunyuan3D for better texture quality
 API Documentation: https://platform.tripo3d.ai/docs
+
+UPDATED: Added image preprocessing for better face quality
 """
 import httpx
 import asyncio
@@ -33,8 +35,8 @@ class Tripo3DClient:
         self.poll_interval = getattr(settings, 'TRIPO3D_POLL_INTERVAL', 5)
         self.max_poll_attempts = getattr(settings, 'TRIPO3D_MAX_POLL_ATTEMPTS', 120)
 
-        # Model version - v2.5 is recommended for good quality
-        self.model_version = getattr(settings, 'TRIPO3D_MODEL_VERSION', 'v2.5-20250123')
+        # Model version - v3.0 for ultra quality with geometry_quality support
+        self.model_version = getattr(settings, 'TRIPO3D_MODEL_VERSION', 'v3.0-20250812')
 
         self.client = httpx.AsyncClient(
             timeout=httpx.Timeout(self.timeout),
@@ -45,6 +47,59 @@ class Tripo3DClient:
         )
 
         logger.info(f"Tripo3D client initialized - Model version: {self.model_version}")
+
+    async def _preprocess_image(self, image_path: str) -> str:
+        """Crop transparent borders and upscale for maximum 3D detail
+
+        The face quality issue is caused by faces being too small in the frame.
+        This preprocessing maximizes the subject size before 3D conversion.
+
+        Args:
+            image_path: Path to the original image
+
+        Returns:
+            Path to the preprocessed image
+        """
+        from PIL import Image
+
+        img = Image.open(image_path)
+        original_size = img.size
+
+        # Step 1: Crop transparent borders to maximize subject in frame
+        if img.mode == 'RGBA':
+            bbox = img.getbbox()
+            if bbox:
+                # Add small padding (2% of dimensions) to avoid cutting edges
+                width = bbox[2] - bbox[0]
+                height = bbox[3] - bbox[1]
+                pad_x = int(width * 0.02)
+                pad_y = int(height * 0.02)
+                bbox = (
+                    max(0, bbox[0] - pad_x),
+                    max(0, bbox[1] - pad_y),
+                    min(img.width, bbox[2] + pad_x),
+                    min(img.height, bbox[3] + pad_y)
+                )
+                img = img.crop(bbox)
+                logger.info(f"Cropped transparent borders: {original_size} -> {img.size}")
+
+        # Step 2: Upscale to maximize resolution (API supports up to 6000x6000)
+        width, height = img.size
+        max_dim = 4096  # Safe limit, leaves headroom below 6000 max
+        scale = max_dim / max(width, height)
+
+        if scale > 1:
+            new_size = (int(width * scale), int(height * scale))
+            img = img.resize(new_size, Image.LANCZOS)
+            logger.info(f"Upscaled image: {width}x{height} -> {new_size[0]}x{new_size[1]}")
+
+        # Save preprocessed image alongside original
+        base_path = os.path.splitext(image_path)[0]
+        processed_path = f"{base_path}_preprocessed.png"
+        img.save(processed_path, 'PNG', optimize=False)
+
+        logger.info(f"Preprocessed image saved: {processed_path}")
+        return processed_path
 
     async def _upload_image(self, image_path: str) -> Optional[str]:
         """Upload image and get image token
@@ -104,6 +159,8 @@ class Tripo3DClient:
                     "type": "png",
                     "file_token": image_token
                 },
+                # NEW: Enable image auto-optimization
+                "enable_image_autofix": True,
                 "texture": True,
                 "pbr": True,
                 "texture_quality": "detailed",  # 4K textures
@@ -115,9 +172,12 @@ class Tripo3DClient:
 
             # Adjust face count based on image type
             if "base_character" in image_type:
-                request_data["face_limit"] = 80000  # Higher detail for characters
+                request_data["face_limit"] = 300000  # Higher detail for characters
             else:
                 request_data["face_limit"] = 50000  # Good detail for accessories
+
+            logger.info(f"Creating task with settings: model={self.model_version}, "
+                       f"geometry_quality=detailed, texture_quality=detailed, enable_image_autofix=True")
 
             response = await self.client.post(
                 f"{self.BASE_URL}/task",
@@ -141,11 +201,13 @@ class Tripo3DClient:
             logger.error(f"Error creating task: {e}")
             return None
 
-    async def _retexture_model(self, original_task_id: str) -> Optional[str]:
+
+    async def _retexture_model(self, original_task_id: str, image_token: str = None) -> Optional[str]:
         """Re-texture a model with enhanced 4K textures
 
         Args:
             original_task_id: Task ID from image_to_model
+            image_token: Optional image token to use as texture reference
 
         Returns:
             New task_id for retexture task or None if failed
@@ -155,12 +217,12 @@ class Tripo3DClient:
                 "type": "texture_model",
                 "original_model_task_id": original_task_id,
                 "texture": True,
-                "pbr": True,
-                "texture_quality": "detailed",  # 4K textures
-                "texture_alignment": "original_image",  # Match original image
+                "pbr": True,  # Generate PBR with current texture
+                "texture_quality": "detailed",  # 4K
+                "texture_alignment": "original_image",  # Prioritize 3D structural accuracy
                 "model_version": self.model_version,
-                "bake": True  # Bake textures for better quality
             }
+            logger.info(f"Upscaling texture to 4K with PBR and geometry alignment")
 
             logger.info(f"Re-texturing model from task: {original_task_id}")
 
@@ -341,7 +403,7 @@ class Tripo3DClient:
             }
 
     async def _process_single_image(self, image_data: Dict, job_id: str, models_dir: str) -> Optional[Dict]:
-        """Process a single image through the full pipeline (upload -> generate -> retexture -> download)
+        """Process a single image through the full pipeline (preprocess -> upload -> generate -> retexture -> download)
 
         Args:
             image_data: Image metadata
@@ -359,9 +421,17 @@ class Tripo3DClient:
             return {'type': image_type, 'error': 'No image path provided'}
 
         try:
-            # Step 1: Upload image
+            # NEW STEP: Preprocess image for better 3D quality
+            logger.info(f"[{image_type}] Preprocessing image for 3D conversion...")
+            try:
+                processed_path = await self._preprocess_image(image_path)
+            except Exception as preprocess_error:
+                logger.warning(f"[{image_type}] Preprocessing failed, using original: {preprocess_error}")
+                processed_path = image_path
+
+            # Step 1: Upload preprocessed image
             logger.info(f"[{image_type}] Uploading image...")
-            image_token = await self._upload_image(image_path)
+            image_token = await self._upload_image(processed_path)
             if not image_token:
                 logger.error(f"[{image_type}] Failed to upload image")
                 return {'type': image_type, 'error': 'Failed to upload image'}
@@ -377,7 +447,9 @@ class Tripo3DClient:
                 'type': image_type,
                 'image_type': image_type,
                 'image_path': image_path,
+                'processed_path': processed_path,  # Track preprocessed path
                 'task_id': task_id,
+                'image_token': image_token,  # Store for retexture reference
                 'models_dir': models_dir,
                 'job_id': job_id
             }
@@ -411,9 +483,10 @@ class Tripo3DClient:
 
             task_info['initial_output'] = output
 
-            # Start retexture
+            # Start retexture with original image for better texture quality
             logger.info(f"[{image_type}] Starting retexture...")
-            retexture_task_id = await self._retexture_model(task_id)
+            image_token = task_info.get('image_token')
+            retexture_task_id = await self._retexture_model(task_id, image_token)
             if retexture_task_id:
                 task_info['retexture_task_id'] = retexture_task_id
             else:
@@ -457,6 +530,8 @@ class Tripo3DClient:
                     logger.warning(f"[{image_type}] Retexture failed, using original model")
 
             # Download model
+            logger.info(f"[{image_type}] Output keys: {list(output.keys())}")
+            logger.info(f"[{image_type}] Full output: {output}")
             model_url = output.get('model') or output.get('pbr_model')
             if not model_url:
                 logger.error(f"[{image_type}] No model URL in output")

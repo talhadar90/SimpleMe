@@ -1,19 +1,14 @@
 import asyncio
 import os
-import shutil
 from services.threed_client_factory import create_3d_client
-from services.sticker_maker_service import StickerMakerService
 
-JOB_ID = "8beb082a-4533-4b71-8190-32dbcb3f7c23"
+JOB_ID = "75520930-b7f2-4196-b111-9b6baba12c90"
 GENERATED_DIR = f"/workspace/SimpleMe/storage/generated/{JOB_ID}"
 
 async def main():
-    # Map the nobg images
+    # Map the nobg images (just figure for now)
     images = {
-        "base_character": f"{GENERATED_DIR}/base_character_20260122_194824_nobg.png",
-        "accessory_1": f"{GENERATED_DIR}/accessory_1_20260122_194914_nobg.png",
-        "accessory_2": f"{GENERATED_DIR}/accessory_2_20260122_194959_nobg.png",
-        "accessory_3": f"{GENERATED_DIR}/accessory_3_20260122_195050_nobg.png",
+        "base_character": f"{GENERATED_DIR}/base_character_20260122_212103_nobg.png",
     }
 
     # Check all files exist
@@ -34,13 +29,10 @@ async def main():
     models_dir = f"/workspace/SimpleMe/storage/processed/{JOB_ID}/3d_models"
     os.makedirs(models_dir, exist_ok=True)
 
-    # Prepare processed_images list for parallel conversion
-    # Note: client expects 'file_path' key, not 'processed_path'
+    # Prepare processed_images list from images dict
     processed_images_list = [
-        {"file_path": images["base_character"], "type": "base_character"},
-        {"file_path": images["accessory_1"], "type": "accessory_1"},
-        {"file_path": images["accessory_2"], "type": "accessory_2"},
-        {"file_path": images["accessory_3"], "type": "accessory_3"},
+        {"file_path": path, "type": name}
+        for name, path in images.items()
     ]
 
     # Use the parallel convert_images_to_3d method
@@ -53,32 +45,19 @@ async def main():
 
     successful_models = [m for m in models_3d if m.get("success")]
     failed_models = [m for m in models_3d if not m.get("success")]
-    print(f"\n✅ {len(successful_models)}/4 models converted successfully")
+    print(f"\n✅ {len(successful_models)}/{len(images)} models converted successfully")
 
     if failed_models:
         print("❌ Some models failed to convert:")
         for m in failed_models:
             print(f"   - {m.get('type', 'unknown')}: {m.get('error', 'unknown error')}")
 
-    if len(successful_models) < 4:
+    if len(successful_models) < len(images):
         print("\n⚠️ Not all models converted - stopping here")
         return
 
-    # Step 2: Generate stickers
-    print("\n🎨 Generating stickers...")
-    sticker_service = StickerMakerService()
-
-    result = await sticker_service.process_3d_models(
-        job_id=JOB_ID,
-        models_3d=models_3d,
-        processed_images=processed_images_list
-    )
-
-    if result.get("success"):
-        print(f"\n✅ Stickers generated!")
-        print(f"   Output: {result.get('output_dir')}")
-    else:
-        print(f"\n❌ Sticker generation failed: {result.get('error')}")
+    # Skip sticker generation for now - just testing 3D model texture
+    print(f"\n✅ Done! Check the GLB file in: {models_dir}")
 
     # Cleanup
     await client.close()

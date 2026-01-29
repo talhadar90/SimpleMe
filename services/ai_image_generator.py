@@ -18,13 +18,13 @@ class AIImageGenerator:
 
         """Generate 4 action figure images: 1 base (from user image) + 3 accessories (standalone)"""
         results = []
-        
+
         # Create output directory for this job
         output_dir = os.path.join(settings.GENERATED_PATH, job_id)
         os.makedirs(output_dir, exist_ok=True)
-        
+
         print(f"🎨 Generating action figures")
-        
+
         # 1. Generate base action figure from user image using IMAGE EDIT API
         base_prompt = self._build_character_prompt()
         base_result = await self._generate_from_user_image(
@@ -36,7 +36,7 @@ class AIImageGenerator:
         )
         if base_result:
             results.append(base_result)
-        
+
         # 2. Generate standalone accessory images using IMAGE GENERATION API
         for i, accessory in enumerate(accessories, 1):
             accessory_prompt = self._build_accessory_prompt(accessory)
@@ -49,31 +49,31 @@ class AIImageGenerator:
             )
             if accessory_result:
                 results.append(accessory_result)
-        
+
         return results
 
     async def ensure_transparent_background(self, image_path: str) -> Dict:
         """Ensure image has transparent background using ComfyUI background removal"""
         try:
             print(f"🖼️ Processing background removal for: {image_path}")
-            
+
             # Check if file exists
             if not os.path.exists(image_path):
                 return {"success": False, "error": "Image file not found"}
-            
+
             # ALWAYS use ComfyUI for better background removal
             # Even if DALL-E claims transparent background, ComfyUI does it better for 3D
             from services.background_remover import ComfyUIBackgroundRemover
-            
+
             bg_remover = ComfyUIBackgroundRemover()
-            
+
             # Create processed file path
             base_name = os.path.splitext(image_path)[0]
             processed_path = f"{base_name}_transparent.png"
-            
+
             # Process with ComfyUI
             success = await bg_remover.remove_background_single(image_path, processed_path)
-            
+
             if success:
                 print(f"✅ ComfyUI background removed and saved to: {processed_path}")
                 return {
@@ -92,7 +92,7 @@ class AIImageGenerator:
                     "method": "original_fallback",
                     "processed_at": datetime.now().isoformat()
                 }
-            
+
         except Exception as e:
             print(f"❌ Background removal failed for {image_path}: {str(e)}")
             return {
@@ -103,7 +103,12 @@ class AIImageGenerator:
             }
 
     def _build_character_prompt(self) -> str:
-        """Build character prompt with technical specifications"""
+        """Build character prompt with technical specifications
+
+        UPDATED: Added stylized proportions for better 3D face quality.
+        The head is now requested at 25-30% of body height instead of realistic ~14%.
+        This gives the 3D converter more face pixels to work with.
+        """
         return f"""Transform this person into a highly detailed 3D action figure character:
 
 CHARACTER REQUIREMENTS:
@@ -223,13 +228,13 @@ COMPOSITION (CRITICAL):
 
 CRITICAL: Generate exactly ONE {stylized_accessory} - single item only, flat lay angle from above, NO SHADOWS, centered, complete, no duplicates."""
 
-    async def _generate_from_user_image(self, job_id: str, user_image_path: str, prompt: str, image_type: str, 
+    async def _generate_from_user_image(self, job_id: str, user_image_path: str, prompt: str, image_type: str,
                                        output_dir: str) -> Dict:
         """Generate action figure from user image using OpenAI Image Edit API with gpt-image-1"""
         try:
             print(f"🎭 Generating {image_type} from user image for job {job_id}")
             print(f"📐 Using gpt-image-1.5 with 1024x1536 dimensions")
-            
+
             with open(user_image_path, 'rb') as image_file:
                 response = self.client.images.edit(
                     model="gpt-image-1.5",
@@ -242,21 +247,21 @@ CRITICAL: Generate exactly ONE {stylized_accessory} - single item only, flat lay
                     input_fidelity="high",  # High fidelity to match facial features
                     n=1
                 )
-            
+
             # Handle base64 response (gpt-image-1 always returns b64_json)
             image_data = response.data[0]
             image_bytes = base64.b64decode(image_data.b64_json)
-            
+
             # Save the image
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{image_type}_{timestamp}.png"
             file_path = os.path.join(output_dir, filename)
-            
+
             async with aiofiles.open(file_path, 'wb') as f:
                 await f.write(image_bytes)
-            
+
             print(f"✅ Saved {image_type} to {file_path}")
-            
+
             return {
                 "type": image_type,
                 "method": "image_edit",
@@ -272,17 +277,18 @@ CRITICAL: Generate exactly ONE {stylized_accessory} - single item only, flat lay
                 "generated_at": datetime.now().isoformat(),
                 "tokens_used": response.usage.total_tokens if hasattr(response, 'usage') else None
             }
-            
+
         except Exception as e:
             print(f"❌ Error generating {image_type}: {str(e)}")
             return None
+
 
     async def _generate_accessory_image(self, job_id: str, prompt: str, image_type: str, output_dir: str, accessory_name: str) -> Dict:
         """Generate standalone accessory image using OpenAI Image Generation API with gpt-image-1"""
         try:
             print(f"🎭 Generating {image_type} accessory for job {job_id}")
             print(f"📐 Using gpt-image-1.5 with 1024x1536 dimensions")
-            
+
             response = self.client.images.generate(
                 model="gpt-image-1.5",
                 prompt=prompt,
@@ -292,21 +298,21 @@ CRITICAL: Generate exactly ONE {stylized_accessory} - single item only, flat lay
                 output_format="png",
                 n=1
             )
-            
+
             # Handle base64 response (gpt-image-1 always returns b64_json)
             image_data = response.data[0]
             image_bytes = base64.b64decode(image_data.b64_json)
-            
+
             # Save the image
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{image_type}_{timestamp}.png"
             file_path = os.path.join(output_dir, filename)
-            
+
             async with aiofiles.open(file_path, 'wb') as f:
                 await f.write(image_bytes)
-            
+
             print(f"✅ Saved {image_type} to {file_path}")
-            
+
             return {
                 "type": image_type,
                 "method": "image_generation",
@@ -322,7 +328,7 @@ CRITICAL: Generate exactly ONE {stylized_accessory} - single item only, flat lay
                 "generated_at": datetime.now().isoformat(),
                 "tokens_used": response.usage.total_tokens if hasattr(response, 'usage') else None
             }
-            
+
         except Exception as e:
             print(f"❌ Error generating {image_type}: {str(e)}")
             return None

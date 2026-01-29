@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     THREED_PROVIDER: str = "tripo3d"  # "hunyuan" or "tripo3d"
 
     # Tripo3D API Configuration (https://platform.tripo3d.ai)
-    TRIPO3D_API_KEY: str = "tsk_r6m7CO36bSgtmMR6jR-74PJ6H27nuB5R99HyQ3Qa09c"
+    TRIPO3D_API_KEY: str = "tsk_lVCR4w3mgJSE9HJIpXvx5QzqP6w1jaBw2iUKFYDjYgQ"
     TRIPO3D_MODEL_VERSION: str = "v3.0-20250812"  # Latest with ultra quality support
     TRIPO3D_TIMEOUT: int = 300  # 5 minutes timeout
     TRIPO3D_POLL_INTERVAL: int = 5  # Seconds between status checks
