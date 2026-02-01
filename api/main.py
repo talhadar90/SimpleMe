@@ -1047,6 +1047,1085 @@ async def shutdown_event():
     logger.info("👋 SimpleMe API shutdown complete")
 
 # ================================
+# Sculptok Test Pipeline Endpoints
+# ================================
+
+from services.sculptok_client import SculptokClient, create_sculptok_client
+
+# Initialize Sculptok client for testing
+try:
+    sculptok_client = create_sculptok_client()
+    logger.info("✅ Sculptok Client initialized for testing")
+except Exception as e:
+    logger.warning(f"⚠️ Sculptok Client initialization failed: {e}")
+    sculptok_client = None
+
+@app.get("/test/sculptok/health")
+async def test_sculptok_health():
+    """Health check for Sculptok API"""
+    if not sculptok_client:
+        return {"healthy": False, "error": "Sculptok client not initialized"}
+
+    result = await sculptok_client.health_check()
+    return result
+
+@app.post("/test/sculptok/upload")
+async def test_sculptok_upload(image: UploadFile = File(...)):
+    """Test Sculptok image upload"""
+    logger.info(f"🧪 [TEST] Sculptok upload test: {image.filename}")
+
+    if not sculptok_client:
+        raise HTTPException(status_code=503, detail="Sculptok client not available")
+
+    # Save uploaded image temporarily
+    test_dir = os.path.join(settings.STORAGE_PATH, "test_sculptok")
+    os.makedirs(test_dir, exist_ok=True)
+
+    temp_path = os.path.join(test_dir, f"upload_test_{image.filename}")
+    content = await image.read()
+
+    async with aiofiles.open(temp_path, 'wb') as f:
+        await f.write(content)
+
+    logger.info(f"   Saved temp file: {temp_path}")
+
+    # Test upload
+    result = await sculptok_client.upload_image(temp_path)
+
+    return {
+        "test": "upload",
+        "input_file": image.filename,
+        "temp_path": temp_path,
+        "result": result
+    }
+
+@app.post("/test/sculptok/bg-remove")
+async def test_sculptok_bg_remove(image_url: str):
+    """Test Sculptok background removal"""
+    logger.info(f"🧪 [TEST] Sculptok BG removal test: {image_url}")
+
+    if not sculptok_client:
+        raise HTTPException(status_code=503, detail="Sculptok client not available")
+
+    # Submit background removal
+    result = await sculptok_client.remove_background(image_url)
+
+    if result.get("success"):
+        # Wait for completion
+        prompt_id = result.get("prompt_id")
+        logger.info(f"   Waiting for completion: {prompt_id}")
+
+        complete_result = await sculptok_client.wait_for_completion(prompt_id, "BG Removal Test")
+        return {
+            "test": "bg_remove",
+            "image_url": image_url,
+            "submit_result": result,
+            "completion_result": complete_result
+        }
+
+    return {
+        "test": "bg_remove",
+        "image_url": image_url,
+        "result": result
+    }
+
+@app.post("/test/sculptok/stl")
+async def test_sculptok_stl(
+    image_url: str,
+    width_mm: float = 120.0,
+    min_thickness: float = 1.6,
+    max_thickness: float = 5.0
+):
+    """Test Sculptok STL generation"""
+    logger.info(f"🧪 [TEST] Sculptok STL generation test: {image_url}")
+
+    if not sculptok_client:
+        raise HTTPException(status_code=503, detail="Sculptok client not available")
+
+    # Submit STL generation
+    result = await sculptok_client.submit_stl(
+        image_url,
+        width_mm=width_mm,
+        min_thickness=min_thickness,
+        max_thickness=max_thickness
+    )
+
+    if result.get("success"):
+        # Wait for completion
+        prompt_id = result.get("prompt_id")
+        logger.info(f"   Waiting for completion: {prompt_id}")
+
+        complete_result = await sculptok_client.wait_for_completion(prompt_id, "STL Generation Test")
+        return {
+            "test": "stl_generation",
+            "image_url": image_url,
+            "params": {
+                "width_mm": width_mm,
+                "min_thickness": min_thickness,
+                "max_thickness": max_thickness
+            },
+            "submit_result": result,
+            "completion_result": complete_result
+        }
+
+    return {
+        "test": "stl_generation",
+        "image_url": image_url,
+        "result": result
+    }
+
+@app.get("/test/sculptok/status/{prompt_id}")
+async def test_sculptok_status(prompt_id: str):
+    """Check status of a Sculptok task"""
+    logger.info(f"🧪 [TEST] Sculptok status check: {prompt_id}")
+
+    if not sculptok_client:
+        raise HTTPException(status_code=503, detail="Sculptok client not available")
+
+    result = await sculptok_client.get_status(prompt_id)
+    return {
+        "test": "status_check",
+        "prompt_id": prompt_id,
+        "result": result
+    }
+
+@app.post("/test/sculptok/full-pipeline")
+async def test_sculptok_full_pipeline(
+    image: UploadFile = File(...),
+    width_mm: float = Form(default=120.0),
+    skip_bg_removal: bool = Form(default=False)
+):
+    """
+    Test full Sculptok pipeline: Upload -> BG Remove -> STL -> Download
+
+    This endpoint tests the complete flow with detailed logging.
+    """
+    logger.info(f"🧪 [TEST] Full Sculptok pipeline test: {image.filename}")
+    logger.info(f"   Parameters: width_mm={width_mm}, skip_bg_removal={skip_bg_removal}")
+
+    if not sculptok_client:
+        raise HTTPException(status_code=503, detail="Sculptok client not available")
+
+    # Create test directory
+    test_id = str(uuid.uuid4())[:8]
+    test_dir = os.path.join(settings.STORAGE_PATH, "test_sculptok", test_id)
+    os.makedirs(test_dir, exist_ok=True)
+
+    # Save uploaded image
+    input_path = os.path.join(test_dir, f"input_{image.filename}")
+    content = await image.read()
+
+    async with aiofiles.open(input_path, 'wb') as f:
+        await f.write(content)
+
+    logger.info(f"   Saved input: {input_path}")
+
+    # Run full pipeline
+    result = await sculptok_client.process_image_to_stl(
+        image_path=input_path,
+        output_dir=test_dir,
+        image_name="test_model",
+        width_mm=width_mm,
+        skip_bg_removal=skip_bg_removal
+    )
+
+    # Add test metadata
+    result["test_id"] = test_id
+    result["test_dir"] = test_dir
+    result["input_file"] = image.filename
+
+    return result
+
+@app.post("/test/sculptok/gpt-to-stl")
+async def test_gpt_to_sculptok_pipeline(
+    user_image: UploadFile = File(...),
+    accessory_1: str = Form(...),
+    accessory_2: str = Form(...),
+    accessory_3: str = Form(...),
+    width_mm: float = Form(default=120.0)
+):
+    """
+    Test full pipeline: User Image -> GPT-image-1.5 -> Sculptok STL
+
+    This tests the complete new pipeline with:
+    1. GPT-image-1.5 for character + accessory generation
+    2. Sculptok for background removal + 2.5D STL generation
+    """
+    logger.info(f"🧪 [TEST] Full GPT -> Sculptok pipeline test")
+    logger.info(f"   User image: {user_image.filename}")
+    logger.info(f"   Accessories: {accessory_1}, {accessory_2}, {accessory_3}")
+
+    if not sculptok_client:
+        raise HTTPException(status_code=503, detail="Sculptok client not available")
+
+    # Create test job
+    test_id = str(uuid.uuid4())[:8]
+    test_dir = os.path.join(settings.STORAGE_PATH, "test_sculptok", test_id)
+    os.makedirs(test_dir, exist_ok=True)
+
+    results = {
+        "test_id": test_id,
+        "test_dir": test_dir,
+        "steps": {},
+        "outputs": {}
+    }
+
+    try:
+        # Step 1: Save user image
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 1: Save User Image")
+        logger.info(f"{'='*60}")
+
+        user_image_path = os.path.join(test_dir, f"user_image_{user_image.filename}")
+        content = await user_image.read()
+
+        async with aiofiles.open(user_image_path, 'wb') as f:
+            await f.write(content)
+
+        results["steps"]["save_user_image"] = {"success": True, "path": user_image_path}
+        logger.info(f"   Saved: {user_image_path}")
+
+        # Step 2: Generate images with GPT-image-1.5
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 2: Generate Images with GPT-image-1.5")
+        logger.info(f"{'='*60}")
+
+        accessories = [accessory_1, accessory_2, accessory_3]
+        generated_images = await ai_generator.generate_action_figures(
+            job_id=test_id,
+            user_image_path=user_image_path,
+            accessories=accessories
+        )
+
+        results["steps"]["gpt_generation"] = {
+            "success": len(generated_images) > 0,
+            "count": len(generated_images),
+            "images": generated_images
+        }
+        logger.info(f"   Generated {len(generated_images)} images")
+
+        # Step 3: Process each image through Sculptok
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 3: Process Images through Sculptok")
+        logger.info(f"{'='*60}")
+
+        sculptok_results = []
+        for i, img_data in enumerate(generated_images):
+            img_path = img_data.get("file_path")  # AI generator uses "file_path" not "path"
+            img_type = img_data.get("type", f"image_{i}")
+
+            logger.info(f"\n   Processing {img_type}: {img_path}")
+
+            output_subdir = os.path.join(test_dir, "sculptok_output", img_type)
+            os.makedirs(output_subdir, exist_ok=True)
+
+            sculptok_result = await sculptok_client.process_image_to_stl(
+                image_path=img_path,
+                output_dir=output_subdir,
+                image_name=img_type,
+                width_mm=width_mm,
+                skip_bg_removal=False  # Use Sculptok for BG removal
+            )
+
+            sculptok_results.append({
+                "type": img_type,
+                "input": img_path,
+                "result": sculptok_result
+            })
+
+            if sculptok_result.get("success"):
+                results["outputs"][img_type] = sculptok_result.get("outputs", {})
+
+        results["steps"]["sculptok_processing"] = {
+            "success": any(r["result"].get("success") for r in sculptok_results),
+            "results": sculptok_results
+        }
+
+        # Summary
+        results["success"] = (
+            results["steps"].get("gpt_generation", {}).get("success", False) and
+            results["steps"].get("sculptok_processing", {}).get("success", False)
+        )
+
+        logger.info(f"\n{'='*60}")
+        logger.info(f"PIPELINE COMPLETE")
+        logger.info(f"{'='*60}")
+        logger.info(f"   Success: {results['success']}")
+        logger.info(f"   Outputs: {list(results['outputs'].keys())}")
+
+        return results
+
+    except Exception as e:
+        logger.error(f"❌ Pipeline error: {e}")
+        logger.error(traceback.format_exc())
+        results["error"] = str(e)
+        results["success"] = False
+        return results
+
+@app.post("/test/sculptok/reprocess/{test_id}")
+async def test_reprocess_existing_images(
+    test_id: str,
+    width_mm: float = 120.0,
+    skip_bg_removal: bool = True  # Skip since GPT images already have transparent bg
+):
+    """
+    Reprocess existing generated images through Sculptok without regenerating.
+
+    Use this to skip GPT image generation and just run Sculptok on existing images.
+    Example: POST /test/sculptok/reprocess/ca767ebc
+    """
+    from services.sculptok_client import SculptokClient
+
+    sculptok_client = SculptokClient()
+
+    # Find existing images
+    generated_dir = os.path.join(settings.GENERATED_PATH, test_id)
+    if not os.path.exists(generated_dir):
+        return {"success": False, "error": f"No generated images found for test_id: {test_id}"}
+
+    # Get all PNG files
+    import glob
+    image_files = glob.glob(os.path.join(generated_dir, "*.png"))
+
+    if not image_files:
+        return {"success": False, "error": f"No PNG images found in {generated_dir}"}
+
+    logger.info(f"\n{'='*60}")
+    logger.info(f"REPROCESSING {len(image_files)} EXISTING IMAGES")
+    logger.info(f"{'='*60}")
+    logger.info(f"   Test ID: {test_id}")
+    logger.info(f"   Images: {image_files}")
+
+    # Create output directory
+    test_output_dir = os.path.join("./storage/test_sculptok", test_id)
+    os.makedirs(test_output_dir, exist_ok=True)
+
+    results = {
+        "test_id": test_id,
+        "success": False,
+        "images_found": len(image_files),
+        "sculptok_results": [],
+        "outputs": {}
+    }
+
+    try:
+        for img_path in sorted(image_files):
+            # Extract image type from filename (e.g., "base_character" from "base_character_20260130_172548.png")
+            filename = os.path.basename(img_path)
+            # Remove timestamp and extension
+            img_type = "_".join(filename.split("_")[:-2]) if filename.count("_") >= 2 else filename.rsplit(".", 1)[0]
+
+            logger.info(f"\n   Processing {img_type}: {img_path}")
+
+            output_subdir = os.path.join(test_output_dir, "sculptok_output", img_type)
+            os.makedirs(output_subdir, exist_ok=True)
+
+            sculptok_result = await sculptok_client.process_image_to_stl(
+                image_path=img_path,
+                output_dir=output_subdir,
+                image_name=img_type,
+                width_mm=width_mm,
+                skip_bg_removal=skip_bg_removal
+            )
+
+            results["sculptok_results"].append({
+                "type": img_type,
+                "input": img_path,
+                "result": sculptok_result
+            })
+
+            if sculptok_result.get("success"):
+                results["outputs"][img_type] = sculptok_result.get("outputs", {})
+                logger.info(f"   ✅ {img_type} processed successfully")
+            else:
+                logger.error(f"   ❌ {img_type} failed: {sculptok_result.get('error')}")
+
+        results["success"] = any(r["result"].get("success") for r in results["sculptok_results"])
+
+        logger.info(f"\n{'='*60}")
+        logger.info(f"REPROCESSING COMPLETE")
+        logger.info(f"{'='*60}")
+        logger.info(f"   Success: {results['success']}")
+        logger.info(f"   Outputs: {list(results['outputs'].keys())}")
+
+        return results
+
+    except Exception as e:
+        logger.error(f"❌ Reprocessing error: {e}")
+        logger.error(traceback.format_exc())
+        results["error"] = str(e)
+        return results
+
+@app.get("/test/sculptok")
+async def test_sculptok_page():
+    """Serve the Sculptok test page"""
+    return FileResponse('/workspace/SimpleMe/test_sculptok.html')
+
+
+# ================================
+# Starter Pack Pipeline (NEW)
+# ================================
+
+@app.post("/test/starter-pack/full-pipeline")
+async def test_starter_pack_full_pipeline(
+    # User photo for figure
+    user_image: UploadFile = File(...),
+    # Accessory descriptions
+    accessory_1: str = Form(...),
+    accessory_2: str = Form(...),
+    accessory_3: str = Form(...),
+    # Title and subtitle
+    title: str = Form(...),
+    subtitle: str = Form(default=""),
+    # Text color
+    text_color: str = Form(default="red"),
+    # Background options
+    background_type: str = Form(default="transparent"),  # transparent, solid, image
+    background_color: str = Form(default="white"),  # For solid backgrounds
+    background_description: str = Form(default=""),  # For GPT-generated backgrounds
+    background_image: Optional[UploadFile] = File(default=None),  # For user-uploaded backgrounds
+):
+    """
+    Full Starter Pack Pipeline:
+
+    1. GPT-image-1.5: Generate base character + 3 accessories + optional background
+    2. Sculptok: Generate depth maps for character + accessories (high quality)
+    3. Blender: Create STL + UV texture using blender_starter_pack.py
+
+    Background options:
+    - transparent: No background (transparent)
+    - solid: Solid color background (use background_color)
+    - image: GPT-generated or user-uploaded background
+      - If background_image is provided: Enhance user's image with GPT
+      - If background_description is provided: Generate new image from description
+
+    Returns:
+        - STL file path
+        - UV texture file path
+        - Blend file path
+        - All intermediate files
+    """
+    logger.info(f"🚀 [STARTER_PACK] Starting full pipeline")
+    logger.info(f"   User image: {user_image.filename}")
+    logger.info(f"   Accessories: {accessory_1}, {accessory_2}, {accessory_3}")
+    logger.info(f"   Title: {title}, Subtitle: {subtitle}")
+    logger.info(f"   Text color: {text_color}")
+    logger.info(f"   Background: type={background_type}, color={background_color}")
+
+    if not sculptok_client:
+        raise HTTPException(status_code=503, detail="Sculptok client not available")
+
+    # Create job directory
+    job_id = str(uuid.uuid4())[:8]
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+    os.makedirs(job_dir, exist_ok=True)
+
+    results = {
+        "job_id": job_id,
+        "job_dir": job_dir,
+        "success": False,
+        "steps": {},
+        "outputs": {},
+        "errors": []
+    }
+
+    try:
+        # ============================================================
+        # STEP 1: Save user image
+        # ============================================================
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 1: Save User Image")
+        logger.info(f"{'='*60}")
+
+        user_image_path = os.path.join(job_dir, f"user_image_{user_image.filename}")
+        content = await user_image.read()
+
+        async with aiofiles.open(user_image_path, 'wb') as f:
+            await f.write(content)
+
+        results["steps"]["save_user_image"] = {"success": True, "path": user_image_path}
+        logger.info(f"   ✅ Saved: {user_image_path}")
+
+        # ============================================================
+        # STEP 2: Generate images with GPT-image-1.5
+        # ============================================================
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 2: Generate Images with GPT-image-1.5")
+        logger.info(f"{'='*60}")
+
+        accessories = [accessory_1, accessory_2, accessory_3]
+        generated_images = await ai_generator.generate_action_figures(
+            job_id=job_id,
+            user_image_path=user_image_path,
+            accessories=accessories
+        )
+
+        if not generated_images:
+            error_msg = "GPT-image-1.5 failed to generate images"
+            logger.error(f"   ❌ {error_msg}")
+            results["errors"].append(error_msg)
+            results["steps"]["gpt_generation"] = {"success": False, "error": error_msg}
+            return results
+
+        results["steps"]["gpt_generation"] = {
+            "success": True,
+            "count": len(generated_images),
+            "images": [img.get("file_path") for img in generated_images]
+        }
+        logger.info(f"   ✅ Generated {len(generated_images)} images")
+
+        # Separate figure and accessories
+        figure_img = None
+        accessory_imgs = []
+        for img in generated_images:
+            if "base_character" in img.get("type", ""):
+                figure_img = img
+            else:
+                accessory_imgs.append(img)
+
+        if not figure_img:
+            error_msg = "No base character image generated"
+            logger.error(f"   ❌ {error_msg}")
+            results["errors"].append(error_msg)
+            return results
+
+        # ============================================================
+        # STEP 2b: Handle background image (if needed)
+        # ============================================================
+        background_image_path = None
+
+        if background_type == "image":
+            logger.info(f"\n{'='*60}")
+            logger.info(f"STEP 2b: Generate/Enhance Background Image")
+            logger.info(f"{'='*60}")
+
+            if background_image:
+                # User uploaded a reference image - enhance it with GPT
+                logger.info(f"   Using user-uploaded reference image")
+
+                # Save uploaded background
+                bg_input_path = os.path.join(job_dir, f"bg_input_{background_image.filename}")
+                bg_content = await background_image.read()
+                async with aiofiles.open(bg_input_path, 'wb') as f:
+                    await f.write(bg_content)
+
+                # Enhance with GPT-image-1.5 (reimagine without changing)
+                try:
+                    from openai import OpenAI
+                    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+                    enhance_prompt = """Enhance this image to be a high-resolution, detailed background.
+Keep the exact same composition and elements, but add more details and improve quality.
+Make it suitable for UV printing at 300 DPI.
+Do not change the subject or composition - only enhance quality and details."""
+
+                    with open(bg_input_path, 'rb') as img_file:
+                        response = client.images.edit(
+                            model="gpt-image-1.5",
+                            image=img_file,
+                            prompt=enhance_prompt,
+                            size="1024x1536",
+                            quality="high",
+                            output_format="png",
+                            n=1
+                        )
+
+                    import base64
+                    bg_bytes = base64.b64decode(response.data[0].b64_json)
+                    background_image_path = os.path.join(job_dir, "background_enhanced.png")
+                    async with aiofiles.open(background_image_path, 'wb') as f:
+                        await f.write(bg_bytes)
+
+                    logger.info(f"   ✅ Enhanced background saved: {background_image_path}")
+                    results["steps"]["background_enhancement"] = {"success": True, "path": background_image_path}
+
+                except Exception as e:
+                    logger.error(f"   ❌ Background enhancement failed: {e}")
+                    results["errors"].append(f"Background enhancement failed: {e}")
+                    # Fall back to original uploaded image
+                    background_image_path = bg_input_path
+
+            elif background_description:
+                # Generate background from description
+                logger.info(f"   Generating background from description: {background_description}")
+
+                try:
+                    from openai import OpenAI
+                    client = OpenAI(api_key=settings.OPENAI_API_KEY)
+
+                    bg_prompt = f"""Create a high-quality background image for an action figure starter pack card.
+The background should be: {background_description}
+
+Requirements:
+- High resolution suitable for UV printing at 300 DPI
+- Vibrant colors that will print well
+- Should work as a background BEHIND action figures
+- No text or logos
+- Seamless, visually appealing design
+- Size: 130mm x 170mm aspect ratio"""
+
+                    response = client.images.generate(
+                        model="gpt-image-1.5",
+                        prompt=bg_prompt,
+                        size="1024x1536",
+                        quality="high",
+                        output_format="png",
+                        n=1
+                    )
+
+                    import base64
+                    bg_bytes = base64.b64decode(response.data[0].b64_json)
+                    background_image_path = os.path.join(job_dir, "background_generated.png")
+                    async with aiofiles.open(background_image_path, 'wb') as f:
+                        await f.write(bg_bytes)
+
+                    logger.info(f"   ✅ Generated background saved: {background_image_path}")
+                    results["steps"]["background_generation"] = {"success": True, "path": background_image_path}
+
+                except Exception as e:
+                    logger.error(f"   ❌ Background generation failed: {e}")
+                    results["errors"].append(f"Background generation failed: {e}")
+                    # Fall back to transparent
+                    background_type = "transparent"
+
+        # ============================================================
+        # STEP 3: Generate depth maps with Sculptok (HIGH QUALITY)
+        # ============================================================
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 3: Generate Depth Maps (Sculptok Pro 4K 16bit)")
+        logger.info(f"{'='*60}")
+
+        depth_maps = {}
+        sculptok_output_dir = os.path.join(job_dir, "sculptok_output")
+        os.makedirs(sculptok_output_dir, exist_ok=True)
+
+        # Process figure
+        logger.info(f"\n   Processing figure depth map...")
+        figure_sculptok_dir = os.path.join(sculptok_output_dir, "base_character")
+        os.makedirs(figure_sculptok_dir, exist_ok=True)
+
+        figure_depth_result = await sculptok_client.process_image_to_depth_map(
+            image_path=figure_img.get("file_path"),
+            output_dir=figure_sculptok_dir,
+            image_name="base_character",
+            skip_bg_removal=True,  # GPT images already have transparent bg
+            style="pro",
+            version="1.5",
+            draw_hd="4k",
+            ext_info="16bit"
+        )
+
+        if figure_depth_result.get("success"):
+            depth_maps["figure"] = figure_depth_result.get("outputs", {}).get("depth_image")
+            logger.info(f"   ✅ Figure depth map: {depth_maps['figure']}")
+        else:
+            error_msg = f"Figure depth map failed: {figure_depth_result.get('error')}"
+            logger.error(f"   ❌ {error_msg}")
+            results["errors"].append(error_msg)
+
+        # Process accessories
+        for i, acc_img in enumerate(accessory_imgs):
+            acc_name = f"accessory_{i+1}"
+            logger.info(f"\n   Processing {acc_name} depth map...")
+
+            acc_sculptok_dir = os.path.join(sculptok_output_dir, acc_name)
+            os.makedirs(acc_sculptok_dir, exist_ok=True)
+
+            acc_depth_result = await sculptok_client.process_image_to_depth_map(
+                image_path=acc_img.get("file_path"),
+                output_dir=acc_sculptok_dir,
+                image_name=acc_name,
+                skip_bg_removal=True,
+                style="pro",
+                version="1.5",
+                draw_hd="4k",
+                ext_info="16bit"
+            )
+
+            if acc_depth_result.get("success"):
+                depth_maps[acc_name] = acc_depth_result.get("outputs", {}).get("depth_image")
+                logger.info(f"   ✅ {acc_name} depth map: {depth_maps[acc_name]}")
+            else:
+                error_msg = f"{acc_name} depth map failed: {acc_depth_result.get('error')}"
+                logger.error(f"   ❌ {error_msg}")
+                results["errors"].append(error_msg)
+
+        results["steps"]["depth_maps"] = {
+            "success": len(depth_maps) > 0,
+            "count": len(depth_maps),
+            "paths": depth_maps
+        }
+
+        if not depth_maps.get("figure"):
+            error_msg = "No figure depth map generated - cannot continue"
+            logger.error(f"   ❌ {error_msg}")
+            results["errors"].append(error_msg)
+            return results
+
+        # ============================================================
+        # STEP 4: Run Blender Starter Pack
+        # ============================================================
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 4: Run Blender Starter Pack")
+        logger.info(f"{'='*60}")
+
+        blender_output_dir = os.path.join(job_dir, "final_output")
+        os.makedirs(blender_output_dir, exist_ok=True)
+
+        # Build Blender command
+        blender_script = "/workspace/SimpleMe/services/blender_starter_pack.py"
+
+        blender_cmd = [
+            "blender",
+            "--background",
+            "--python", blender_script,
+            "--",
+            "--figure_depth", depth_maps.get("figure", ""),
+            "--figure_img", figure_img.get("file_path", ""),
+            "--output_dir", blender_output_dir,
+            "--job_id", job_id,
+            "--title", title,
+            "--subtitle", subtitle,
+            "--text_color", text_color,
+            "--background_type", background_type,
+            "--background_color", background_color,
+        ]
+
+        # Add accessory depth maps and images
+        for i, acc_img in enumerate(accessory_imgs):
+            acc_name = f"accessory_{i+1}"
+            if depth_maps.get(acc_name):
+                blender_cmd.extend([f"--acc{i+1}_depth", depth_maps[acc_name]])
+                blender_cmd.extend([f"--acc{i+1}_img", acc_img.get("file_path", "")])
+
+        # Add background image if applicable
+        if background_type == "image" and background_image_path:
+            blender_cmd.extend(["--background_image", background_image_path])
+
+        logger.info(f"   Running Blender command...")
+        logger.debug(f"   Command: {' '.join(blender_cmd)}")
+
+        import subprocess
+        try:
+            blender_result = subprocess.run(
+                blender_cmd,
+                capture_output=True,
+                text=True,
+                timeout=600  # 10 minute timeout
+            )
+
+            if blender_result.returncode == 0:
+                logger.info(f"   ✅ Blender completed successfully")
+                results["steps"]["blender"] = {"success": True, "stdout": blender_result.stdout[-2000:]}
+
+                # Collect output files
+                stl_path = os.path.join(blender_output_dir, f"{job_id}.stl")
+                texture_path = os.path.join(blender_output_dir, f"{job_id}_texture.png")
+                blend_path = os.path.join(blender_output_dir, f"{job_id}.blend")
+
+                if os.path.exists(stl_path):
+                    results["outputs"]["stl"] = stl_path
+                    results["outputs"]["stl_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.stl"
+                    logger.info(f"   ✅ STL: {stl_path}")
+
+                if os.path.exists(texture_path):
+                    results["outputs"]["texture"] = texture_path
+                    results["outputs"]["texture_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_texture.png"
+                    logger.info(f"   ✅ Texture: {texture_path}")
+
+                if os.path.exists(blend_path):
+                    results["outputs"]["blend"] = blend_path
+                    results["outputs"]["blend_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.blend"
+                    logger.info(f"   ✅ Blend: {blend_path}")
+
+            else:
+                error_msg = f"Blender failed with code {blender_result.returncode}"
+                logger.error(f"   ❌ {error_msg}")
+                logger.error(f"   STDERR: {blender_result.stderr[-2000:]}")
+                results["errors"].append(error_msg)
+                results["steps"]["blender"] = {
+                    "success": False,
+                    "error": error_msg,
+                    "stderr": blender_result.stderr[-2000:]
+                }
+
+        except subprocess.TimeoutExpired:
+            error_msg = "Blender timed out after 10 minutes"
+            logger.error(f"   ❌ {error_msg}")
+            results["errors"].append(error_msg)
+            results["steps"]["blender"] = {"success": False, "error": error_msg}
+
+        except Exception as e:
+            error_msg = f"Blender exception: {e}"
+            logger.error(f"   ❌ {error_msg}")
+            results["errors"].append(error_msg)
+            results["steps"]["blender"] = {"success": False, "error": error_msg}
+
+        # ============================================================
+        # FINAL: Determine overall success
+        # ============================================================
+        results["success"] = (
+            results.get("outputs", {}).get("stl") is not None and
+            results.get("outputs", {}).get("texture") is not None
+        )
+
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STARTER PACK PIPELINE COMPLETE")
+        logger.info(f"{'='*60}")
+        logger.info(f"   Job ID: {job_id}")
+        logger.info(f"   Success: {results['success']}")
+        logger.info(f"   Outputs: {list(results.get('outputs', {}).keys())}")
+        if results["errors"]:
+            logger.warning(f"   Errors: {results['errors']}")
+
+        return results
+
+    except Exception as e:
+        logger.error(f"❌ [STARTER_PACK] Pipeline exception: {e}")
+        logger.error(traceback.format_exc())
+        results["errors"].append(str(e))
+        results["success"] = False
+        return results
+
+
+@app.post("/test/starter-pack/resume/{job_id}")
+async def resume_starter_pack_pipeline(
+    job_id: str,
+    title: str = Form(...),
+    subtitle: str = Form(default=""),
+    text_color: str = Form(default="red"),
+    background_type: str = Form(default="transparent"),
+    background_color: str = Form(default="white"),
+):
+    """
+    Resume a failed Starter Pack pipeline from Sculptok step.
+
+    Use this when GPT images are already generated but Sculptok/Blender failed.
+    """
+    logger.info(f"🔄 [RESUME] Resuming pipeline for job {job_id}")
+
+    # Find existing generated images
+    generated_dir = os.path.join(settings.GENERATED_PATH, job_id)
+    if not os.path.exists(generated_dir):
+        raise HTTPException(status_code=404, detail=f"No generated images found for job {job_id}")
+
+    import glob
+    image_files = sorted(glob.glob(os.path.join(generated_dir, "*.png")))
+
+    if not image_files:
+        raise HTTPException(status_code=404, detail=f"No PNG images found in {generated_dir}")
+
+    logger.info(f"   Found {len(image_files)} images: {[os.path.basename(f) for f in image_files]}")
+
+    # Separate figure and accessories
+    figure_img_path = None
+    accessory_img_paths = []
+
+    for img_path in image_files:
+        filename = os.path.basename(img_path)
+        if "base_character" in filename:
+            figure_img_path = img_path
+        elif "accessory" in filename:
+            accessory_img_paths.append(img_path)
+
+    if not figure_img_path:
+        raise HTTPException(status_code=404, detail="No base_character image found")
+
+    # Sort accessories by number
+    accessory_img_paths = sorted(accessory_img_paths)
+
+    logger.info(f"   Figure: {figure_img_path}")
+    logger.info(f"   Accessories: {accessory_img_paths}")
+
+    # Setup directories
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+    os.makedirs(job_dir, exist_ok=True)
+
+    results = {
+        "job_id": job_id,
+        "job_dir": job_dir,
+        "success": False,
+        "resumed": True,
+        "steps": {},
+        "outputs": {},
+        "errors": []
+    }
+
+    try:
+        # ============================================================
+        # STEP 3: Generate depth maps with Sculptok (HIGH QUALITY)
+        # ============================================================
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 3: Generate Depth Maps (Sculptok Pro 4K 16bit)")
+        logger.info(f"{'='*60}")
+
+        depth_maps = {}
+        sculptok_output_dir = os.path.join(job_dir, "sculptok_output")
+        os.makedirs(sculptok_output_dir, exist_ok=True)
+
+        # Process figure
+        logger.info(f"\n   Processing figure depth map...")
+        figure_sculptok_dir = os.path.join(sculptok_output_dir, "base_character")
+        os.makedirs(figure_sculptok_dir, exist_ok=True)
+
+        figure_depth_result = await sculptok_client.process_image_to_depth_map(
+            image_path=figure_img_path,
+            output_dir=figure_sculptok_dir,
+            image_name="base_character",
+            skip_bg_removal=True,
+            style="pro",
+            version="1.5",
+            draw_hd="4k",
+            ext_info="16bit"
+        )
+
+        if figure_depth_result.get("success"):
+            depth_maps["figure"] = figure_depth_result.get("outputs", {}).get("depth_image")
+            logger.info(f"   ✅ Figure depth map: {depth_maps['figure']}")
+        else:
+            error_msg = f"Figure depth map failed: {figure_depth_result.get('error')}"
+            logger.error(f"   ❌ {error_msg}")
+            results["errors"].append(error_msg)
+
+        # Process accessories
+        for i, acc_img_path in enumerate(accessory_img_paths[:3]):  # Max 3 accessories
+            acc_name = f"accessory_{i+1}"
+            logger.info(f"\n   Processing {acc_name} depth map...")
+
+            acc_sculptok_dir = os.path.join(sculptok_output_dir, acc_name)
+            os.makedirs(acc_sculptok_dir, exist_ok=True)
+
+            acc_depth_result = await sculptok_client.process_image_to_depth_map(
+                image_path=acc_img_path,
+                output_dir=acc_sculptok_dir,
+                image_name=acc_name,
+                skip_bg_removal=True,
+                style="pro",
+                version="1.5",
+                draw_hd="4k",
+                ext_info="16bit"
+            )
+
+            if acc_depth_result.get("success"):
+                depth_maps[acc_name] = acc_depth_result.get("outputs", {}).get("depth_image")
+                logger.info(f"   ✅ {acc_name} depth map: {depth_maps[acc_name]}")
+            else:
+                error_msg = f"{acc_name} depth map failed: {acc_depth_result.get('error')}"
+                logger.error(f"   ❌ {error_msg}")
+                results["errors"].append(error_msg)
+
+        results["steps"]["depth_maps"] = {
+            "success": len(depth_maps) > 0,
+            "count": len(depth_maps),
+            "paths": depth_maps
+        }
+
+        if not depth_maps.get("figure"):
+            results["errors"].append("No figure depth map - cannot continue")
+            return results
+
+        # ============================================================
+        # STEP 4: Run Blender Starter Pack
+        # ============================================================
+        logger.info(f"\n{'='*60}")
+        logger.info(f"STEP 4: Run Blender Starter Pack")
+        logger.info(f"{'='*60}")
+
+        blender_output_dir = os.path.join(job_dir, "final_output")
+        os.makedirs(blender_output_dir, exist_ok=True)
+
+        blender_script = "/workspace/SimpleMe/services/blender_starter_pack.py"
+
+        blender_cmd = [
+            "blender", "--background", "--python", blender_script, "--",
+            "--figure_depth", depth_maps.get("figure", ""),
+            "--figure_img", figure_img_path,
+            "--output_dir", blender_output_dir,
+            "--job_id", job_id,
+            "--title", title,
+            "--subtitle", subtitle,
+            "--text_color", text_color,
+            "--background_type", background_type,
+            "--background_color", background_color,
+        ]
+
+        # Add accessories
+        for i, acc_img_path in enumerate(accessory_img_paths[:3]):
+            acc_name = f"accessory_{i+1}"
+            if depth_maps.get(acc_name):
+                blender_cmd.extend([f"--acc{i+1}_depth", depth_maps[acc_name]])
+                blender_cmd.extend([f"--acc{i+1}_img", acc_img_path])
+
+        logger.info(f"   Running Blender...")
+
+        import subprocess
+        blender_result = subprocess.run(blender_cmd, capture_output=True, text=True, timeout=600)
+
+        if blender_result.returncode == 0:
+            logger.info(f"   ✅ Blender completed")
+            results["steps"]["blender"] = {"success": True}
+
+            stl_path = os.path.join(blender_output_dir, f"{job_id}.stl")
+            texture_path = os.path.join(blender_output_dir, f"{job_id}_texture.png")
+            blend_path = os.path.join(blender_output_dir, f"{job_id}.blend")
+
+            if os.path.exists(stl_path):
+                results["outputs"]["stl"] = stl_path
+                results["outputs"]["stl_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.stl"
+            if os.path.exists(texture_path):
+                results["outputs"]["texture"] = texture_path
+                results["outputs"]["texture_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_texture.png"
+            if os.path.exists(blend_path):
+                results["outputs"]["blend"] = blend_path
+                results["outputs"]["blend_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.blend"
+        else:
+            results["errors"].append(f"Blender failed: {blender_result.stderr[-1000:]}")
+            results["steps"]["blender"] = {"success": False, "stderr": blender_result.stderr[-1000:]}
+
+        results["success"] = bool(results.get("outputs", {}).get("stl"))
+
+        logger.info(f"\n{'='*60}")
+        logger.info(f"RESUME COMPLETE - Success: {results['success']}")
+        logger.info(f"{'='*60}")
+
+        return results
+
+    except Exception as e:
+        logger.error(f"❌ Resume failed: {e}")
+        logger.error(traceback.format_exc())
+        results["errors"].append(str(e))
+        return results
+
+
+@app.get("/test/starter-pack")
+async def test_starter_pack_page():
+    """Serve the Starter Pack test page"""
+    # Check if test page exists, otherwise return info
+    test_page_path = '/workspace/SimpleMe/test_starter_pack.html'
+    if os.path.exists(test_page_path):
+        return FileResponse(test_page_path)
+    else:
+        return {
+            "message": "Starter Pack Test API",
+            "endpoint": "/test/starter-pack/full-pipeline",
+            "method": "POST",
+            "parameters": {
+                "user_image": "File - User photo for figure (required)",
+                "accessory_1": "String - First accessory description (required)",
+                "accessory_2": "String - Second accessory description (required)",
+                "accessory_3": "String - Third accessory description (required)",
+                "title": "String - Main title text (required)",
+                "subtitle": "String - Subtitle text (optional)",
+                "text_color": "String - red/blue/green/white/black/yellow/orange/purple/pink/gold (default: red)",
+                "background_type": "String - transparent/solid/image (default: transparent)",
+                "background_color": "String - Color name for solid background (default: white)",
+                "background_description": "String - Description for GPT-generated background",
+                "background_image": "File - User image to enhance for background (optional)"
+            }
+        }
+
+
+# ================================
 # Shopify Integration Endpoints
 # ================================
 

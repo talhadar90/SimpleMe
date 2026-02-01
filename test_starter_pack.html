@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starter Pack Test Pipeline</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        body {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1 {
+            color: #00d4ff;
+            text-align: center;
+        }
+        .section {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .section h3 {
+            color: #00d4ff;
+            margin-top: 0;
+            border-bottom: 1px solid #0f3460;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #aaa;
+            font-size: 14px;
+        }
+        input[type="text"], input[type="file"], select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #0f3460;
+            border-radius: 5px;
+            background: #0f3460;
+            color: #fff;
+            font-size: 14px;
+        }
+        input[type="file"] {
+            padding: 8px;
+        }
+        select {
+            cursor: pointer;
+        }
+        .row {
+            display: flex;
+            gap: 15px;
+        }
+        .row > .form-group {
+            flex: 1;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        #status.loading {
+            display: block;
+            background: #0f3460;
+            border-left: 4px solid #00d4ff;
+        }
+        #status.success {
+            display: block;
+            background: #0f3d0f;
+            border-left: 4px solid #00ff00;
+        }
+        #status.error {
+            display: block;
+            background: #3d0f0f;
+            border-left: 4px solid #ff0000;
+        }
+        .output-links {
+            margin-top: 15px;
+        }
+        .output-links a {
+            display: inline-block;
+            margin: 5px 10px 5px 0;
+            padding: 8px 15px;
+            background: #0f3460;
+            color: #00d4ff;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .output-links a:hover {
+            background: #1a4a7a;
+        }
+        .bg-options {
+            display: none;
+        }
+        .bg-options.active {
+            display: block;
+        }
+        pre {
+            background: #0a0a15;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #0f3460;
+            border-top-color: #00d4ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Starter Pack Test Pipeline</h1>
+    <p style="text-align: center; color: #888;">
+        Full pipeline: GPT-image-1.5 → Sculptok Depth Maps → Blender STL + Texture
+    </p>
+
+    <form id="pipelineForm">
+        <!-- User Image -->
+        <div class="section">
+            <h3>1. User Photo (for Figure)</h3>
+            <div class="form-group">
+                <label>Upload your photo *</label>
+                <input type="file" name="user_image" accept="image/*" required>
+            </div>
+        </div>
+
+        <!-- Accessories -->
+        <div class="section">
+            <h3>2. Accessories (text descriptions)</h3>
+            <div class="row">
+                <div class="form-group">
+                    <label>Accessory 1 *</label>
+                    <input type="text" name="accessory_1" placeholder="e.g., samurai sword" required>
+                </div>
+                <div class="form-group">
+                    <label>Accessory 2 *</label>
+                    <input type="text" name="accessory_2" placeholder="e.g., shield" required>
+                </div>
+                <div class="form-group">
+                    <label>Accessory 3 *</label>
+                    <input type="text" name="accessory_3" placeholder="e.g., helmet" required>
+                </div>
+            </div>
+        </div>
+
+        <!-- Title and Subtitle -->
+        <div class="section">
+            <h3>3. Title & Subtitle</h3>
+            <div class="row">
+                <div class="form-group">
+                    <label>Title *</label>
+                    <input type="text" name="title" placeholder="e.g., Helmut" required>
+                </div>
+                <div class="form-group">
+                    <label>Subtitle</label>
+                    <input type="text" name="subtitle" placeholder="e.g., TGI AG">
+                </div>
+                <div class="form-group">
+                    <label>Text Color</label>
+                    <select name="text_color">
+                        <option value="red">Red</option>
+                        <option value="blue">Blue</option>
+                        <option value="green">Green</option>
+                        <option value="white">White</option>
+                        <option value="black">Black</option>
+                        <option value="yellow">Yellow</option>
+                        <option value="orange">Orange</option>
+                        <option value="purple">Purple</option>
+                        <option value="pink">Pink</option>
+                        <option value="gold">Gold</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Background Options -->
+        <div class="section">
+            <h3>4. Background</h3>
+            <div class="form-group">
+                <label>Background Type</label>
+                <select name="background_type" id="bgType" onchange="toggleBgOptions()">
+                    <option value="transparent">Transparent (no background)</option>
+                    <option value="solid">Solid Color</option>
+                    <option value="image">Image (upload or describe)</option>
+                </select>
+            </div>
+
+            <div id="bgSolidOptions" class="bg-options">
+                <div class="form-group">
+                    <label>Background Color</label>
+                    <select name="background_color">
+                        <option value="white">White</option>
+                        <option value="black">Black</option>
+                        <option value="red">Red</option>
+                        <option value="blue">Blue</option>
+                        <option value="green">Green</option>
+                        <option value="yellow">Yellow</option>
+                        <option value="orange">Orange</option>
+                        <option value="purple">Purple</option>
+                        <option value="pink">Pink</option>
+                        <option value="gray">Gray</option>
+                        <option value="navy">Navy</option>
+                        <option value="teal">Teal</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="bgImageOptions" class="bg-options">
+                <div class="form-group">
+                    <label>Option A: Upload reference image (GPT will enhance it)</label>
+                    <input type="file" name="background_image" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>Option B: Describe the background (GPT will generate it)</label>
+                    <textarea name="background_description" rows="2" placeholder="e.g., galaxy background with stars, or wooden texture"></textarea>
+                </div>
+                <p style="color: #888; font-size: 12px;">
+                    Note: If you upload an image, description will be ignored.
+                </p>
+            </div>
+        </div>
+
+        <button type="submit" id="submitBtn">Generate Starter Pack</button>
+    </form>
+
+    <div id="status"></div>
+
+    <script>
+        function toggleBgOptions() {
+            const bgType = document.getElementById('bgType').value;
+            document.getElementById('bgSolidOptions').classList.toggle('active', bgType === 'solid');
+            document.getElementById('bgImageOptions').classList.toggle('active', bgType === 'image');
+        }
+
+        document.getElementById('pipelineForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const statusDiv = document.getElementById('status');
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            statusDiv.className = 'loading';
+            statusDiv.innerHTML = '<span class="spinner"></span> Starting pipeline... This may take several minutes.';
+
+            const formData = new FormData(e.target);
+
+            try {
+                const response = await fetch('/test/starter-pack/full-pipeline', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    statusDiv.className = 'success';
+                    let html = `<strong>Success!</strong> Job ID: ${result.job_id}<br><br>`;
+                    html += '<div class="output-links">';
+
+                    if (result.outputs.stl_url) {
+                        html += `<a href="${result.outputs.stl_url}" target="_blank">Download STL</a>`;
+                    }
+                    if (result.outputs.texture_url) {
+                        html += `<a href="${result.outputs.texture_url}" target="_blank">Download Texture</a>`;
+                    }
+                    if (result.outputs.blend_url) {
+                        html += `<a href="${result.outputs.blend_url}" target="_blank">Download Blend</a>`;
+                    }
+
+                    html += '</div>';
+
+                    if (result.errors && result.errors.length > 0) {
+                        html += `<br><strong>Warnings:</strong><pre>${JSON.stringify(result.errors, null, 2)}</pre>`;
+                    }
+
+                    html += `<br><strong>Full Response:</strong><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                    statusDiv.innerHTML = html;
+                } else {
+                    statusDiv.className = 'error';
+                    let html = `<strong>Failed</strong><br><br>`;
+
+                    if (result.errors && result.errors.length > 0) {
+                        html += `<strong>Errors:</strong><ul>`;
+                        result.errors.forEach(err => {
+                            html += `<li>${err}</li>`;
+                        });
+                        html += '</ul>';
+                    }
+
+                    html += `<br><strong>Full Response:</strong><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                    statusDiv.innerHTML = html;
+                }
+
+            } catch (error) {
+                statusDiv.className = 'error';
+                statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Generate Starter Pack';
+            }
+        });
+    </script>
+</body>
+</html>
