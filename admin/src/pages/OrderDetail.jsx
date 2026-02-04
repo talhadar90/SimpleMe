@@ -171,7 +171,8 @@ export default function OrderDetail() {
     { step: 2, name: 'Background Image', desc: 'Re-generate background only' },
     { step: 3, name: 'Background Removal', desc: 'Re-run Sculptok HD removal' },
     { step: 4, name: 'Depth Maps', desc: 'Re-generate depth maps' },
-    { step: 5, name: 'Blender', desc: 'Re-run STL/texture generation' }
+    { step: 5, name: 'Blender', desc: 'Re-run STL/texture generation' },
+    { step: 6, name: 'Stickers', desc: 'Re-generate front/back stickers' }
   ]
 
   const getTextColorDisplay = (color) => {
@@ -267,7 +268,7 @@ export default function OrderDetail() {
                       background: 'none',
                       border: 'none',
                       cursor: 'pointer',
-                      borderBottom: step < 5 ? '1px solid #f1f5f9' : 'none'
+                      borderBottom: step < 6 ? '1px solid #f1f5f9' : 'none'
                     }}
                     onMouseEnter={(e) => e.target.style.background = '#f1f5f9'}
                     onMouseLeave={(e) => e.target.style.background = 'none'}
@@ -506,6 +507,32 @@ export default function OrderDetail() {
                 <Download size={20} />
               </button>
             )}
+            {(order.sticker_front_url || files?.outputs?.sticker_front) && (
+              <button
+                className="download-card"
+                onClick={() => downloadFile(order.sticker_front_url || files.outputs.sticker_front, `${order.job_id}_sticker_front.png`)}
+              >
+                <div className="download-icon png" style={{ background: '#10b981' }}>FRONT</div>
+                <div className="download-info">
+                  <span className="download-title">Sticker Front</span>
+                  <span className="download-desc">130×170mm @ 300 DPI</span>
+                </div>
+                <Download size={20} />
+              </button>
+            )}
+            {(order.sticker_back_url || files?.outputs?.sticker_back) && (
+              <button
+                className="download-card"
+                onClick={() => downloadFile(order.sticker_back_url || files.outputs.sticker_back, `${order.job_id}_sticker_back.png`)}
+              >
+                <div className="download-icon png" style={{ background: '#6366f1' }}>BACK</div>
+                <div className="download-info">
+                  <span className="download-title">Sticker Back</span>
+                  <span className="download-desc">130×170mm @ 300 DPI</span>
+                </div>
+                <Download size={20} />
+              </button>
+            )}
           </div>
           {!order.stl_url && !order.texture_url && !order.blend_url && !files?.outputs?.stl && (
             <p className="empty-text">No files available yet</p>
@@ -539,6 +566,88 @@ export default function OrderDetail() {
             baseUrl={API_BASE_URL}
           />
         </>
+      )}
+
+      {/* Stickers Preview */}
+      {order.status === 'completed' && (files?.outputs?.sticker_front || files?.outputs?.sticker_back) && (
+        <div className="files-section" style={{ marginTop: '24px' }}>
+          <h2><FileImage size={20} /> Stickers (130mm × 170mm @ 300 DPI)</h2>
+          <div className="stickers-grid" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '24px',
+            marginTop: '16px'
+          }}>
+            {files?.outputs?.sticker_front && (
+              <div className="sticker-card" style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '16px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <h4 style={{ margin: '0 0 12px 0', color: '#475569' }}>Front Sticker</h4>
+                <div style={{
+                  background: '#fff',
+                  borderRadius: '8px',
+                  padding: '8px',
+                  marginBottom: '12px'
+                }}>
+                  <img
+                    src={`${API_BASE_URL}${files.outputs.sticker_front}`}
+                    alt="Front Sticker"
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </div>
+                <button
+                  className="btn btn-small"
+                  onClick={() => downloadFile(files.outputs.sticker_front, `${order.job_id}_sticker_front.png`)}
+                  style={{ width: '100%' }}
+                >
+                  <Download size={14} /> Download Front
+                </button>
+              </div>
+            )}
+            {files?.outputs?.sticker_back && (
+              <div className="sticker-card" style={{
+                background: '#f8fafc',
+                borderRadius: '12px',
+                padding: '16px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <h4 style={{ margin: '0 0 12px 0', color: '#475569' }}>Back Sticker</h4>
+                <div style={{
+                  background: '#fff',
+                  borderRadius: '8px',
+                  padding: '8px',
+                  marginBottom: '12px'
+                }}>
+                  <img
+                    src={`${API_BASE_URL}${files.outputs.sticker_back}`}
+                    alt="Back Sticker"
+                    style={{
+                      width: '100%',
+                      height: 'auto',
+                      borderRadius: '4px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                </div>
+                <button
+                  className="btn btn-small"
+                  onClick={() => downloadFile(files.outputs.sticker_back, `${order.job_id}_sticker_back.png`)}
+                  style={{ width: '100%' }}
+                >
+                  <Download size={14} /> Download Back
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Processing Status */}

@@ -74,10 +74,11 @@ class OrderProcessor:
         3 - Background removal (Sculptok HD)
         4 - Depth map generation
         5 - Blender processing
+        6 - Sticker generation
 
         Args:
             job_id: The job ID to retry
-            from_step: Step number to resume from (1-5)
+            from_step: Step number to resume from (1-6)
             order_data: Optional order data (if not provided, loads from DB)
 
         Returns:
@@ -547,65 +548,87 @@ Make it visually interesting but not too busy - it should complement, not overwh
             # ============================================================
             # STEP 5: Run Blender to create STL + texture
             # ============================================================
-            logger.info(f"[ORDER {job_id}] Step 5: Blender Processing")
-
-            blender_script = os.path.join(os.path.dirname(__file__), "blender_starter_pack.py")
             output_dir = os.path.join(job_dir, "final_output")
             os.makedirs(output_dir, exist_ok=True)
 
-            # Build Blender command
-            blender_cmd = [
-                "blender", "--background", "--python", blender_script, "--"
-            ]
+            if from_step <= 5:
+                logger.info(f"[ORDER {job_id}] Step 5: Blender Processing")
 
-            # Add figure (Blender expects --figure_img and --figure_depth)
-            # Use ORIGINAL high-quality image for texture, not nobg (which is lower quality)
-            figure_texture_img = figure_img.get("original_path") or figure_img.get("file_path")
-            logger.info(f"[ORDER {job_id}] Using for Blender texture: {figure_texture_img}")
+                blender_script = os.path.join(os.path.dirname(__file__), "blender_starter_pack.py")
 
-            blender_cmd.extend([
-                "--figure_img", figure_texture_img,
-                "--figure_depth", depth_maps["figure"]
-            ])
+                # Build Blender command
+                blender_cmd = [
+                    "blender", "--background", "--python", blender_script, "--"
+                ]
 
-            # Add accessories (Blender expects --acc1_img, --acc1_depth, --acc2_img, etc.)
-            # Use ORIGINAL images for textures
-            for i, acc_img in enumerate(accessory_imgs):
-                acc_num = i + 1
-                acc_name = f"accessory_{acc_num}"
-                if acc_name in depth_maps and acc_num <= 3:  # Max 3 accessories supported
-                    acc_texture_img = acc_img.get("original_path") or acc_img.get("file_path")
-                    blender_cmd.extend([
-                        f"--acc{acc_num}_img", acc_texture_img,
-                        f"--acc{acc_num}_depth", depth_maps[acc_name]
-                    ])
+                # Add figure (Blender expects --figure_img and --figure_depth)
+                # Use ORIGINAL high-quality image for texture, not nobg (which is lower quality)
+                figure_texture_img = figure_img.get("original_path") or figure_img.get("file_path")
+                logger.info(f"[ORDER {job_id}] Using for Blender texture: {figure_texture_img}")
 
-            # Add title/subtitle/colors
-            blender_cmd.extend([
-                "--title", order_data.get("title", ""),
-                "--subtitle", order_data.get("subtitle", ""),
-                "--text_color", order_data.get("text_color", "red"),
-                "--background_type", background_type,
-                "--background_color", background_color,
-            ])
+                blender_cmd.extend([
+                    "--figure_img", figure_texture_img,
+                    "--figure_depth", depth_maps["figure"]
+                ])
 
-            if background_image_path:
-                blender_cmd.extend(["--background_image", background_image_path])
+                # Add accessories (Blender expects --acc1_img, --acc1_depth, --acc2_img, etc.)
+                # Use ORIGINAL images for textures
+                for i, acc_img in enumerate(accessory_imgs):
+                    acc_num = i + 1
+                    acc_name = f"accessory_{acc_num}"
+                    if acc_name in depth_maps and acc_num <= 3:  # Max 3 accessories supported
+                        acc_texture_img = acc_img.get("original_path") or acc_img.get("file_path")
+                        blender_cmd.extend([
+                            f"--acc{acc_num}_img", acc_texture_img,
+                            f"--acc{acc_num}_depth", depth_maps[acc_name]
+                        ])
 
-            blender_cmd.extend([
-                "--output_dir", output_dir,
-                "--job_id", job_id
-            ])
+                # Add title/subtitle/colors
+                blender_cmd.extend([
+                    "--title", order_data.get("title", ""),
+                    "--subtitle", order_data.get("subtitle", ""),
+                    "--text_color", order_data.get("text_color", "red"),
+                    "--background_type", background_type,
+                    "--background_color", background_color,
+                ])
 
-            logger.info(f"[ORDER {job_id}] Running Blender...")
-            blender_result = subprocess.run(
-                blender_cmd,
-                capture_output=True,
-                text=True,
-                timeout=600
-            )
+                if background_image_path:
+                    blender_cmd.extend(["--background_image", background_image_path])
 
-            if blender_result.returncode == 0:
+                blender_cmd.extend([
+                    "--output_dir", output_dir,
+                    "--job_id", job_id
+                ])
+
+                logger.info(f"[ORDER {job_id}] Running Blender...")
+                blender_result = subprocess.run(
+                    blender_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=600
+                )
+
+                if blender_result.returncode == 0:
+                    stl_path = os.path.join(output_dir, f"{job_id}.stl")
+                    texture_path = os.path.join(output_dir, f"{job_id}_texture.png")
+                    blend_path = os.path.join(output_dir, f"{job_id}.blend")
+
+                    if os.path.exists(stl_path):
+                        outputs["stl"] = stl_path
+                        outputs["stl_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.stl"
+                    if os.path.exists(texture_path):
+                        outputs["texture"] = texture_path
+                        outputs["texture_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_texture.png"
+                    if os.path.exists(blend_path):
+                        outputs["blend"] = blend_path
+                        outputs["blend_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.blend"
+
+                    logger.info(f"[ORDER {job_id}] Blender completed successfully")
+                else:
+                    raise Exception(f"Blender failed: {blender_result.stderr[-500:]}")
+            else:
+                # Skipping step 5 - load existing outputs for step 6 retry
+                logger.info(f"[ORDER {job_id}] ⏭️ Skipping Step 5 - Loading existing outputs")
                 stl_path = os.path.join(output_dir, f"{job_id}.stl")
                 texture_path = os.path.join(output_dir, f"{job_id}_texture.png")
                 blend_path = os.path.join(output_dir, f"{job_id}.blend")
@@ -616,13 +639,40 @@ Make it visually interesting but not too busy - it should complement, not overwh
                 if os.path.exists(texture_path):
                     outputs["texture"] = texture_path
                     outputs["texture_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_texture.png"
+                else:
+                    raise Exception("No existing texture found for sticker generation")
                 if os.path.exists(blend_path):
                     outputs["blend"] = blend_path
                     outputs["blend_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.blend"
 
-                logger.info(f"[ORDER {job_id}] Blender completed successfully")
-            else:
-                raise Exception(f"Blender failed: {blender_result.stderr[-500:]}")
+            # ============================================================
+            # STEP 6: Generate stickers (front and back)
+            # ============================================================
+            if outputs.get("texture"):
+                logger.info(f"[ORDER {job_id}] Step 6: Sticker Generation")
+
+                from services.sticker_generator import generate_stickers
+
+                try:
+                    stickers = generate_stickers(
+                        texture_path=outputs["texture"],
+                        output_dir=output_dir,
+                        job_id=job_id,
+                        title=order_data.get("title", ""),
+                        subtitle=order_data.get("subtitle", "")
+                    )
+
+                    if stickers.get("front"):
+                        outputs["sticker_front"] = stickers["front"]
+                        outputs["sticker_front_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_sticker_front.png"
+                    if stickers.get("back"):
+                        outputs["sticker_back"] = stickers["back"]
+                        outputs["sticker_back_url"] = f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_sticker_back.png"
+
+                    logger.info(f"[ORDER {job_id}] Stickers generated successfully")
+                except Exception as sticker_error:
+                    logger.warning(f"[ORDER {job_id}] Sticker generation failed: {sticker_error}")
+                    errors.append(f"Sticker generation failed: {sticker_error}")
 
             # ============================================================
             # FINAL: Update database with results
@@ -637,7 +687,11 @@ Make it visually interesting but not too busy - it should complement, not overwh
                         "blend_path": outputs.get("blend"),
                         "stl_url": outputs.get("stl_url"),
                         "texture_url": outputs.get("texture_url"),
-                        "blend_url": outputs.get("blend_url")
+                        "blend_url": outputs.get("blend_url"),
+                        "sticker_front_path": outputs.get("sticker_front"),
+                        "sticker_back_path": outputs.get("sticker_back"),
+                        "sticker_front_url": outputs.get("sticker_front_url"),
+                        "sticker_back_url": outputs.get("sticker_back_url")
                     })
                     logger.info(f"✅ [ORDER {job_id}] Completed successfully")
                 else:

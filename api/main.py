@@ -1698,16 +1698,17 @@ async def retry_starter_pack_order(job_id: str, from_step: int = 5):
     3 - Background removal (Sculptok HD)
     4 - Depth map generation
     5 - Blender processing
+    6 - Sticker generation
 
     Args:
         job_id: The job ID to retry
-        from_step: Step number to resume from (1-5, default: 5 for just Blender)
+        from_step: Step number to resume from (1-6, default: 5 for just Blender)
     """
     from services.order_processor import get_order_processor
 
     # Validate step number
-    if from_step < 1 or from_step > 5:
-        return {"success": False, "error": "from_step must be between 1 and 5"}
+    if from_step < 1 or from_step > 6:
+        return {"success": False, "error": "from_step must be between 1 and 6"}
 
     # Get order from database
     supabase = get_supabase_client()
@@ -1747,7 +1748,8 @@ async def retry_starter_pack_order(job_id: str, from_step: int = 5):
         2: "Background Image",
         3: "Background Removal",
         4: "Depth Map Generation",
-        5: "Blender Processing"
+        5: "Blender Processing",
+        6: "Sticker Generation"
     }
 
     return {
@@ -2004,7 +2006,9 @@ async def get_starter_pack_files(job_id: str):
         "outputs": {
             "stl": None,
             "texture": None,
-            "blend": None
+            "blend": None,
+            "sticker_front": None,
+            "sticker_back": None
         }
     }
 
@@ -2063,6 +2067,10 @@ async def get_starter_pack_files(job_id: str):
                 files["outputs"]["texture"] = f"{base_url}/final_output/{f}"
             elif f.endswith(".blend"):
                 files["outputs"]["blend"] = f"{base_url}/final_output/{f}"
+            elif f.endswith("_sticker_front.png"):
+                files["outputs"]["sticker_front"] = f"{base_url}/final_output/{f}"
+            elif f.endswith("_sticker_back.png"):
+                files["outputs"]["sticker_back"] = f"{base_url}/final_output/{f}"
 
     return {"success": True, "job_id": job_id, "files": files}
 
