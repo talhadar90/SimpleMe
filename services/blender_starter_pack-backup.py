@@ -7,17 +7,7 @@ import bpy
 import os
 import sys
 import argparse
-import json
-from datetime import datetime
 from mathutils import Vector
-
-
-def write_debug_log(output_dir, data):
-    """Write debug log to JSON file in output directory"""
-    debug_path = os.path.join(output_dir, "debug_dimensions.json")
-    with open(debug_path, 'w') as f:
-        json.dump(data, f, indent=2)
-    print(f"\n=== DEBUG LOG WRITTEN: {debug_path} ===\n")
 
 # ============================================================
 # CONFIGURATION
@@ -38,9 +28,8 @@ FIGURE_WIDTH_RATIO = 3.0 / 5.0  # Figure takes 3/5 of width (left side)
 ACC_HEIGHT_RATIO = 2.0 / 3.0  # Accessories column is 2/3 of card height
 MARGIN_FIGURE = 5.0  # mm margin around figure
 MARGIN_ACCESSORIES = 3.0  # mm margin around accessories
-ACC_VERTICAL_SPACING = 8.0  # mm visual spacing between accessories (affects position, not size)
 SIZE_BOOST_FIGURE = 1.32  # Target: ~90mm x 135mm
-SIZE_BOOST_ACCESSORIES = 1.62  # Target: ~34.5mm x 51.8mm (unchanged)
+SIZE_BOOST_ACCESSORIES = 1.62  # Target: ~34.5mm x 51.8mm
 MESH_PLANE_SINK_DEPTH = 1.0  # How deep to sink mesh plane into card (mm) - deeper to hide from corners
 
 # Text Configuration
@@ -67,26 +56,6 @@ TEXT_COLORS = {
     'purple': (0.6, 0.2, 0.8, 1.0),
     'pink': (1.0, 0.4, 0.7, 1.0),
     'gold': (0.85, 0.65, 0.13, 1.0),
-}
-
-# Background colors (RGB tuple for PIL, 0-255)
-BACKGROUND_COLORS = {
-    'white': (255, 255, 255),
-    'black': (0, 0, 0),
-    'red': (255, 0, 0),
-    'blue': (0, 77, 204),
-    'green': (0, 153, 51),
-    'yellow': (255, 217, 0),
-    'orange': (255, 128, 0),
-    'purple': (153, 51, 204),
-    'pink': (255, 102, 178),
-    'gray': (128, 128, 128),
-    'navy': (0, 0, 128),
-    'teal': (0, 128, 128),
-    'maroon': (128, 0, 0),
-    'olive': (128, 128, 0),
-    'silver': (192, 192, 192),
-    'transparent': None,  # Keep transparent (no background)
 }
 
 
@@ -479,29 +448,10 @@ def calculate_layout():
     """
     Calculate slot positions for figure and accessories.
     Returns dict with all layout measurements in meters.
-
-    Layout structure (130mm x 170mm card):
-    ┌─────────────────────────────────┐
-    │        Title/Subtitle           │  <- 15% height (25.5mm)
-    │           (UPPER)               │
-    ├───────────────────┬─────────────┤
-    │                   │  Acc 1      │
-    │                   │             │
-    │                   │   ↕ gap     │  <- visual spacing
-    │     Figure        │  Acc 2      │
-    │    (3/5 width)    │  (2/5)      │
-    │                   │   ↕ gap     │  <- visual spacing
-    │                   │  Acc 3      │
-    │                   │             │
-    └───────────────────┴─────────────┘
-
-    Note: Spacing affects POSITION only, not accessory SIZE.
-    Accessories keep full cell height for sizing.
     """
     # Convert to meters
     card_w = CARD_WIDTH / 1000.0
     card_h = CARD_HEIGHT / 1000.0
-    spacing = ACC_VERTICAL_SPACING / 1000.0  # Convert mm to meters
 
     # Upper band (for text) and lower band (for content)
     H_upper = card_h * UPPER_RATIO
@@ -524,35 +474,17 @@ def calculate_layout():
     acc_slot_w = W_right
     acc_slot_h = card_h * ACC_HEIGHT_RATIO
 
-    # Accessory cells - KEEP ORIGINAL SIZE (no reduction for spacing)
-    # This ensures accessories stay the same size
-    num_accessories = 3
-    acc_cell_h = acc_slot_h / num_accessories  # Original cell height for SIZING
+    # Accessory cells (3 vertical parts)
+    acc_cell_h = acc_slot_h / 3.0
 
     # X centers
     left_x_center = -card_w / 2.0 + fig_slot_w / 2.0
     right_x_center = card_w / 2.0 - acc_slot_w / 2.0
 
-    # Y centers for 3 accessory slots with VISUAL SPACING
-    # The spacing spreads the accessories apart without shrinking them
-    # Total spread = (num_accessories - 1) * spacing
-    total_spread = (num_accessories - 1) * spacing
-
-    # Effective height for positioning (includes spacing)
-    position_height = acc_slot_h + total_spread
-
-    # Center the spread accessories in the lower band
+    # Y centers for 3 accessory slots (top, middle, bottom)
     acc_y_center = lower_y_center
-    acc_top_y = acc_y_center + (position_height / 2.0) - (acc_cell_h / 2.0)
-
-    # Calculate Y centers with spacing between them
-    acc_centers_y = []
-    for i in range(num_accessories):
-        y_center = acc_top_y - (i * (acc_cell_h + spacing))
-        acc_centers_y.append(y_center)
-
-    print(f"  Layout: acc_slot_h={acc_slot_h*1000:.1f}mm, cell_h={acc_cell_h*1000:.1f}mm, spacing={spacing*1000:.1f}mm")
-    print(f"  Accessory Y centers: {[f'{y*1000:.1f}mm' for y in acc_centers_y]}")
+    start_y = acc_y_center + (acc_slot_h / 2.0) - acc_cell_h / 2.0
+    acc_centers_y = [start_y - i * acc_cell_h for i in range(3)]
 
     return {
         'card_w': card_w,
@@ -562,7 +494,7 @@ def calculate_layout():
         'fig_x': left_x_center,
         'fig_y': lower_y_center,
         'acc_slot_w': acc_slot_w * 1000,
-        'acc_cell_h': acc_cell_h * 1000,  # Original size preserved
+        'acc_cell_h': acc_cell_h * 1000,
         'acc_x': right_x_center,
         'acc_centers_y': acc_centers_y,
     }
@@ -628,25 +560,9 @@ def create_displaced_mesh(depth_png_path, color_png_path, name="Figure", displac
     plane = bpy.context.object
     plane.name = name
 
-    # Scale plane to match input image aspect ratio
-    # This ensures 2D texture aligns perfectly with 3D mesh
-    from PIL import Image as PILImage
-    if os.path.exists(color_png_path):
-        with PILImage.open(color_png_path) as img:
-            img_w, img_h = img.size
-            aspect = img_w / img_h
-            # Base height 120mm, width based on aspect ratio
-            plane_h = 0.12  # 120mm in meters
-            plane_w = plane_h * aspect
-            print(f"  Image size: {img_w}x{img_h}, aspect: {aspect:.3f}")
-            print(f"  Mesh plane: {plane_w*1000:.1f}x{plane_h*1000:.1f}mm")
-    else:
-        # Fallback to default
-        plane_w = 0.08
-        plane_h = 0.12
-        print(f"  Using default mesh plane: 80x120mm")
-
-    plane.scale = (plane_w, plane_h, 1)
+    # Scale plane to reasonable size (will adjust later)
+    # Using aspect ratio from a typical figure (width < height)
+    plane.scale = (0.08, 0.12, 1)  # ~80mm x 120mm
     select_only(plane)
     bpy.ops.object.transform_apply(scale=True)
 
@@ -766,8 +682,7 @@ def position_figure(figure, card, layout):
     """Position the figure in its designated slot (left 3/5 of lower area)
 
     Returns:
-        tuple: (figure_top_z, post_pos, post_dims, crop_ratios) for texture alignment
-        crop_ratios: dict with 'left', 'right', 'top', 'bottom' indicating what fraction was trimmed
+        tuple: (figure_top_z, pre_trim_pos, pre_trim_dims) for texture alignment
     """
     print("\n=== Positioning Figure ===")
 
@@ -775,21 +690,9 @@ def position_figure(figure, card, layout):
     center_xy(figure)
     rest_on_z0(figure)
 
-    # CAPTURE mesh plane dimensions BEFORE modifiers affect the bounding box
-    # This represents the "true" mesh plane size that the UV texture maps to
-    bpy.context.view_layer.update()
-    mesh_plane_dims_pre = figure.dimensions.copy()  # X, Y dimensions of mesh plane
-    print(f"  Mesh plane (pre-fit): {mesh_plane_dims_pre.x*1000:.1f}x{mesh_plane_dims_pre.y*1000:.1f}mm")
-
     # Scale to fit in figure slot with size boost
     uniform_fit(figure, layout['fig_slot_w'], layout['fig_slot_h'], margin=MARGIN_FIGURE, size_boost=SIZE_BOOST_FIGURE)
     print(f"  Scaled to fit in {layout['fig_slot_w']:.0f}x{layout['fig_slot_h']:.0f}mm slot (scale: {SIZE_BOOST_FIGURE})")
-
-    # CAPTURE mesh plane dimensions AFTER scaling (but before trim)
-    # This is the scaled mesh plane that should match the 2D texture
-    bpy.context.view_layer.update()
-    mesh_plane_dims_post = figure.dimensions.copy()
-    print(f"  Mesh plane (post-fit): {mesh_plane_dims_post.x*1000:.1f}x{mesh_plane_dims_post.y*1000:.1f}mm")
 
     # Center again after scaling
     center_xy(figure)
@@ -807,15 +710,14 @@ def position_figure(figure, card, layout):
     card_height = CARD_HEIGHT / 1000.0
     sink_mesh_plane_into_card(figure, card_thickness, MESH_PLANE_SINK_DEPTH)
 
-    # CAPTURE PRE-TRIM mesh plane dimensions (using figure.dimensions, not world_aabb)
-    # figure.dimensions = mesh plane size, world_aabb = displaced geometry size
+    # CAPTURE PRE-TRIM position and dimensions for texture alignment
     bpy.context.view_layer.update()
-    pre_dims = figure.dimensions.copy()
-    pre_width = pre_dims.x
-    pre_height = pre_dims.y
-    # Also capture world_aabb for position reference
-    pre_min, pre_max = world_aabb(figure)
-    print(f"  Pre-trim mesh plane: {pre_width*1000:.1f}x{pre_height*1000:.1f}mm")
+    pre_trim_min, pre_trim_max = world_aabb(figure)
+    pre_trim_center_x = (pre_trim_min.x + pre_trim_max.x) / 2.0
+    pre_trim_center_y = (pre_trim_min.y + pre_trim_max.y) / 2.0
+    pre_trim_pos = (pre_trim_center_x * 1000, pre_trim_center_y * 1000)  # mm
+    pre_trim_dims = (figure.dimensions.x * 1000, figure.dimensions.y * 1000)  # mm
+    print(f"  Pre-trim: center=({pre_trim_pos[0]:.1f}, {pre_trim_pos[1]:.1f})mm, dims=({pre_trim_dims[0]:.1f}x{pre_trim_dims[1]:.1f})mm")
 
     # Trim to card boundaries (cut anything outside XY bounds)
     trim_to_card_boundaries(figure, card_width, card_height, card_thickness)
@@ -826,52 +728,11 @@ def position_figure(figure, card, layout):
     # Apply shade auto smooth
     apply_shade_auto_smooth(figure, angle=30.0)
 
-    # CAPTURE POST-TRIM position and dimensions for texture alignment
-    bpy.context.view_layer.update()
-    post_min, post_max = world_aabb(figure)
-    post_center_x = (post_min.x + post_max.x) / 2.0
-    post_center_y = (post_min.y + post_max.y) / 2.0
-    post_pos = (post_center_x * 1000, post_center_y * 1000)  # mm
-
-    # For dimensions, use figure.dimensions (mesh plane size) NOT world_aabb
-    # world_aabb includes displacement expansion which doesn't match the 2D texture
-    # figure.dimensions represents the actual mesh plane that UV texture maps to
-    post_dims = (figure.dimensions.x * 1000, figure.dimensions.y * 1000)  # mm
-
-    # Log both for comparison
-    aabb_width = (post_max.x - post_min.x) * 1000
-    aabb_height = (post_max.y - post_min.y) * 1000
-    print(f"  Post-trim world_aabb: {aabb_width:.1f}x{aabb_height:.1f}mm (includes displacement)")
-    print(f"  Post-trim mesh plane: {post_dims[0]:.1f}x{post_dims[1]:.1f}mm (for texture alignment)")
-
-    # Calculate crop ratios - what fraction of each edge was trimmed
-    # Use figure.dimensions for consistent mesh plane measurements
-    post_width = figure.dimensions.x
-    post_height = figure.dimensions.y
-    eps = 1e-6
-
-    # Crop ratios based on dimension change and position shift
-    width_lost = pre_width - post_width
-    height_lost = pre_height - post_height
-
-    # Determine which edges were trimmed based on position shift
-    left_shift = post_min.x - pre_min.x  # Positive = left trimmed
-    bottom_shift = post_min.y - pre_min.y  # Positive = bottom trimmed
-
-    crop_ratios = {
-        'left': max(0, left_shift / pre_width) if pre_width > eps else 0,
-        'right': max(0, (width_lost - left_shift) / pre_width) if pre_width > eps else 0,
-        'bottom': max(0, bottom_shift / pre_height) if pre_height > eps else 0,
-        'top': max(0, (height_lost - bottom_shift) / pre_height) if pre_height > eps else 0,
-    }
-    print(f"  Dimension change: {pre_width*1000:.1f}x{pre_height*1000:.1f} -> {post_width*1000:.1f}x{post_height*1000:.1f}mm")
-    print(f"  Crop ratios: left={crop_ratios['left']:.3f}, right={crop_ratios['right']:.3f}, bottom={crop_ratios['bottom']:.3f}, top={crop_ratios['top']:.3f}")
-
     # Get figure top Z for matching accessory heights
     figure_top_z = top_z(figure)
 
     print_obj_info(figure, "Figure positioned:")
-    return figure_top_z, post_pos, post_dims, crop_ratios
+    return figure_top_z, pre_trim_pos, pre_trim_dims
 
 
 def position_accessory(acc, card, layout, index, figure_top_z=None):
@@ -1256,14 +1117,12 @@ def render_texture_top_down(card, texture_path, dpi=300):
 
 
 def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_dims,
-                            acc_images, acc_positions, acc_dims, dpi=300,
-                            background_type='transparent', background_color='white', background_image=None,
-                            text_objects=None, figure_crop_ratios=None):
+                            acc_images, acc_positions, acc_dims, text_objects, dpi=300):
     """
     Create a UV print texture by compositing:
-    - Background layer (solid color OR image OR transparent)
+    - Transparent background
     - Original 2D images at the exact positions of 3D models
-    - Text rendered by BLENDER (exact same shapes as 3D STL text)
+    - Rendered text
 
     Args:
         texture_path: Output path for the texture
@@ -1273,16 +1132,12 @@ def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_di
         acc_images: List of paths to accessory 2D images
         acc_positions: List of (x, y) positions for accessories in mm
         acc_dims: List of (width, height) for accessories in mm
+        text_objects: List of text objects to render
         dpi: Output DPI (default 300)
-        background_type: 'transparent', 'solid', or 'image'
-        background_color: Color name for solid background (from BACKGROUND_COLORS)
-        background_image: Path to background image (for 'image' type)
-        text_objects: Blender text objects to render (same shapes as STL)
     """
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image
 
     print("\n=== Creating UV Print Texture ===")
-    print(f"  Background type: {background_type}")
 
     # Calculate canvas size in pixels
     # 1 inch = 25.4mm
@@ -1293,56 +1148,8 @@ def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_di
     print(f"  Canvas: {canvas_width} x {canvas_height} pixels ({dpi} DPI)")
     print(f"  Scale: {px_per_mm:.2f} pixels/mm")
 
-    # Create canvas based on background type
-    if background_type == 'solid' and background_color != 'transparent':
-        bg_rgb = BACKGROUND_COLORS.get(background_color.lower(), BACKGROUND_COLORS['white'])
-        if bg_rgb is None:
-            # transparent option selected
-            canvas = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
-            print(f"  Background: transparent")
-        else:
-            # Solid color with full opacity
-            canvas = Image.new('RGBA', (canvas_width, canvas_height), (*bg_rgb, 255))
-            print(f"  Background: solid {background_color} -> RGB{bg_rgb}")
-    elif background_type == 'image' and background_image and os.path.exists(background_image):
-        # Load background image with HIGH QUALITY handling
-        try:
-            bg_img = Image.open(background_image).convert('RGBA')
-            orig_w, orig_h = bg_img.size
-            print(f"  Background image original size: {orig_w}x{orig_h}")
-
-            # Check if upscaling is needed (might cause pixelation)
-            if orig_w < canvas_width or orig_h < canvas_height:
-                print(f"  WARNING: Background image is smaller than canvas, upscaling may cause pixelation")
-                print(f"  Recommended minimum size: {canvas_width}x{canvas_height} pixels")
-
-            # Use high-quality resize that preserves detail
-            # First, calculate aspect-ratio-preserving size that COVERS the canvas
-            scale_w = canvas_width / orig_w
-            scale_h = canvas_height / orig_h
-            scale = max(scale_w, scale_h)  # Use max to COVER (not fit)
-
-            scaled_w = int(orig_w * scale)
-            scaled_h = int(orig_h * scale)
-
-            # Resize with high quality
-            bg_img = bg_img.resize((scaled_w, scaled_h), Image.Resampling.LANCZOS)
-
-            # Center crop to exact canvas size
-            left = (scaled_w - canvas_width) // 2
-            top = (scaled_h - canvas_height) // 2
-            bg_img = bg_img.crop((left, top, left + canvas_width, top + canvas_height))
-
-            canvas = bg_img
-            print(f"  Background: image from {background_image} (scaled {scale:.2f}x, cropped to fit)")
-        except Exception as e:
-            print(f"  WARNING: Failed to load background image: {e}")
-            print(f"  Falling back to transparent background")
-            canvas = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
-    else:
-        # Transparent background (default)
-        canvas = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
-        print(f"  Background: transparent")
+    # Create transparent canvas
+    canvas = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
 
     def mm_to_px(x_mm, y_mm):
         """Convert mm coordinates (origin at center) to pixel coordinates (origin at top-left)"""
@@ -1352,14 +1159,8 @@ def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_di
         px_y = int((CARD_HEIGHT / 2.0 - y_mm) * px_per_mm)  # Flip Y
         return px_x, px_y
 
-    def place_image(img_path, center_x_mm, center_y_mm, width_mm, height_mm, label="", crop_ratios=None):
-        """Place an image on the canvas at the specified position and size
-
-        Args:
-            crop_ratios: dict with 'left', 'right', 'top', 'bottom' fractions to crop from each edge
-        """
-        nonlocal canvas
-
+    def place_image(img_path, center_x_mm, center_y_mm, width_mm, height_mm, label=""):
+        """Place an image on the canvas at the specified position and size"""
         if not os.path.exists(img_path):
             print(f"  WARNING: Image not found: {img_path}")
             return
@@ -1368,41 +1169,15 @@ def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_di
         img = Image.open(img_path).convert('RGBA')
         orig_w, orig_h = img.size
 
-        # Apply crop ratios if provided (for figure that was trimmed at card boundaries)
-        if crop_ratios and label == "Figure":
-            crop_left = int(orig_w * crop_ratios.get('left', 0))
-            crop_right = orig_w - int(orig_w * crop_ratios.get('right', 0))
-            # Note: PIL crop uses (left, upper, right, lower) - image Y=0 is TOP
-            # But our crop ratios are in 3D space where Y increases upward
-            # So 'top' trim in 3D = crop from TOP of image (upper in PIL)
-            # And 'bottom' trim in 3D = crop from BOTTOM of image (lower in PIL)
-            crop_top = int(orig_h * crop_ratios.get('top', 0))  # Remove from top of image
-            crop_bottom = orig_h - int(orig_h * crop_ratios.get('bottom', 0))  # Remove from bottom
-
-            if crop_left > 0 or crop_top > 0 or crop_right < orig_w or crop_bottom < orig_h:
-                img = img.crop((crop_left, crop_top, crop_right, crop_bottom))
-                orig_w, orig_h = img.size
-                print(f"  Cropped {label}: {crop_left}px left, {crop_top}px top -> {orig_w}x{orig_h}px")
-
         # Calculate target size in pixels
         target_w_px = int(width_mm * px_per_mm)
         target_h_px = int(height_mm * px_per_mm)
 
-        # For Figure: add compensation for 3D edge effect
-        # The displacement creates a visible relief edge that extends beyond the mesh plane
-        # Scale up the 2D image slightly to cover this edge
-        FIGURE_EDGE_COMPENSATION = 1.03  # 3% larger to cover 3D relief edges
-
-        if label == "Figure":
-            # Apply edge compensation to target size
-            target_w_px = int(target_w_px * FIGURE_EDGE_COMPENSATION)
-            target_h_px = int(target_h_px * FIGURE_EDGE_COMPENSATION)
-
-        # Scale uniformly to fit within target bounds (maintains aspect ratio for both figure and accessories)
-        # This prevents distortion from slight aspect ratio differences between 2D and 3D
+        # Scale image to fit within target size while maintaining aspect ratio
         scale_w = target_w_px / orig_w
         scale_h = target_h_px / orig_h
         scale = min(scale_w, scale_h)
+
         new_w = int(orig_w * scale)
         new_h = int(orig_h * scale)
 
@@ -1416,19 +1191,19 @@ def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_di
         # Paste with alpha compositing
         canvas.paste(img_resized, (paste_x, paste_y), img_resized)
 
-        print(f"  Placed {label}: {orig_w}x{orig_h}px -> {new_w}x{new_h}px at ({paste_x}, {paste_y})")
+        print(f"  Placed {label}: {new_w}x{new_h}px at ({paste_x}, {paste_y})")
 
     # Place figure image
     if figure_img_path and figure_pos and figure_dims:
         place_image(figure_img_path, figure_pos[0], figure_pos[1],
-                   figure_dims[0], figure_dims[1], "Figure", crop_ratios=figure_crop_ratios)
+                   figure_dims[0], figure_dims[1], "Figure")
 
     # Place accessory images
     for i, (img_path, pos, dims) in enumerate(zip(acc_images, acc_positions, acc_dims)):
         if img_path and pos and dims:
             place_image(img_path, pos[0], pos[1], dims[0], dims[1], f"Accessory_{i+1}")
 
-    # Render text using BLENDER for exact same shapes as 3D STL text
+    # Render text separately and composite
     if text_objects:
         text_render_path = texture_path.replace('.png', '_text_temp.png')
         render_text_only(text_objects, text_render_path, canvas_width, canvas_height)
@@ -1437,7 +1212,7 @@ def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_di
             text_img = Image.open(text_render_path).convert('RGBA')
             canvas = Image.alpha_composite(canvas, text_img)
             os.remove(text_render_path)  # Clean up temp file
-            print(f"  Composited Blender-rendered text (exact STL shapes)")
+            print(f"  Composited text layer")
 
     # Save final texture with correct DPI metadata (300 DPI)
     # PIL uses pixels per inch for DPI
@@ -1448,11 +1223,8 @@ def create_uv_print_texture(texture_path, figure_img_path, figure_pos, figure_di
 
 
 def render_text_only(text_objects, output_path, width, height):
-    """
-    Render only the text objects to a transparent PNG.
-    Uses Standard color management for ACCURATE colors (no Filmic grey-ing).
-    """
-    print(f"  Rendering text layer with accurate colors...")
+    """Render only the text objects to a transparent PNG"""
+    print(f"  Rendering text layer...")
 
     # Hide all objects except text
     all_objects = list(bpy.data.objects)
@@ -1484,25 +1256,16 @@ def render_text_only(text_objects, output_path, width, height):
     scene.render.image_settings.color_mode = 'RGBA'
     scene.render.film_transparent = True
 
-    # CRITICAL: Set color management to Standard for ACCURATE colors
-    # Filmic view transform compresses whites to grey - we need exact colors
-    scene.view_settings.view_transform = 'Standard'
-    scene.view_settings.look = 'None'
-    scene.view_settings.exposure = 0.0
-    scene.view_settings.gamma = 1.0
-    print(f"  Color management: Standard (accurate colors)")
-
     # Use Cycles for text
     scene.render.engine = 'CYCLES'
     scene.cycles.device = 'GPU'
     scene.cycles.samples = 64
 
-    # Add bright light for flat illumination
+    # Add light
     bpy.ops.object.light_add(type='SUN', location=(0, 0, 1))
     sun = bpy.context.object
     sun.name = "TextLight"
-    sun.data.energy = 2.0  # Slightly reduced since we're not using Filmic compression
-    sun.rotation_euler = (0, 0, 0)  # Straight down
+    sun.data.energy = 3.0
 
     # Render
     scene.render.filepath = output_path
@@ -1517,7 +1280,7 @@ def render_text_only(text_objects, output_path, width, height):
         if obj_name in bpy.data.objects:
             bpy.data.objects[obj_name].hide_render = hide_state
 
-    print(f"  Text layer rendered with accurate colors")
+    print(f"  Text layer rendered")
 
 
 # ============================================================
@@ -1548,240 +1311,18 @@ def parse_args():
                    help="Color of the text")
     p.add_argument("--font", type=str, default="", help="Optional path to TTF/OTF font file")
 
-    # Background arguments
-    p.add_argument("--background_type", type=str, default="transparent",
-                   choices=['transparent', 'solid', 'image'],
-                   help="Type of background: transparent, solid color, or image")
-    p.add_argument("--background_color", type=str, default="white",
-                   choices=['white', 'black', 'red', 'blue', 'green', 'yellow', 'orange', 'purple',
-                           'pink', 'gray', 'navy', 'teal', 'maroon', 'olive', 'silver', 'transparent'],
-                   help="Color for solid background")
-    p.add_argument("--background_image", type=str, default="",
-                   help="Path to background image (for 'image' background type)")
-
-    # Displacement strength arguments
-    p.add_argument("--displacement_figure", type=float, default=DISPLACEMENT_STRENGTH_FIGURE,
-                   help=f"Displacement strength for figure (default: {DISPLACEMENT_STRENGTH_FIGURE})")
-    p.add_argument("--displacement_accessories", type=float, default=DISPLACEMENT_STRENGTH_ACCESSORIES,
-                   help=f"Displacement strength for accessories (default: {DISPLACEMENT_STRENGTH_ACCESSORIES})")
-
-    # Layout arguments
-    p.add_argument("--acc_spacing", type=float, default=ACC_VERTICAL_SPACING,
-                   help=f"Vertical spacing between accessories in mm (default: {ACC_VERTICAL_SPACING})")
-
-    # Texture-only mode (regenerate texture from existing blend file)
-    p.add_argument("--texture-only", action="store_true",
-                   help="Only regenerate texture from existing blend file (skip STL generation)")
-    p.add_argument("--blend-file", type=str, default="",
-                   help="Path to existing blend file (required for --texture-only mode)")
-
     return p.parse_args(argv)
 
 
 def main():
-    global ACC_VERTICAL_SPACING
-
     args = parse_args()
 
     print("=" * 60)
     print("STARTER PACK - DISPLACEMENT METHOD")
     print("=" * 60)
 
-    os.makedirs(args.output_dir, exist_ok=True)
-
-    # ============================================================
-    # TEXTURE-ONLY MODE: Load existing blend and regenerate texture
-    # ============================================================
-    if args.texture_only:
-        blend_file = args.blend_file
-        if not blend_file:
-            # Try to find blend file in output_dir
-            blend_file = os.path.join(args.output_dir, f"{args.job_id}.blend")
-
-        if not os.path.exists(blend_file):
-            print(f"ERROR: Blend file not found: {blend_file}")
-            return
-
-        print(f"\n=== TEXTURE-ONLY MODE ===")
-        print(f"  Loading: {blend_file}")
-        bpy.ops.wm.open_mainfile(filepath=blend_file)
-        bpy.context.view_layer.update()
-
-        # Find existing objects
-        card = bpy.data.objects.get("Card")
-        figure = bpy.data.objects.get("Figure")
-        text_objects = [obj for obj in bpy.data.objects if obj.type == 'FONT']
-
-        # Find accessories
-        accessories = []
-        for i in range(1, 4):
-            acc = bpy.data.objects.get(f"Accessory_{i}")
-            if acc:
-                accessories.append(acc)
-
-        print(f"  Found: Card={card is not None}, Figure={figure is not None}, Accessories={len(accessories)}, Text={len(text_objects)}")
-
-        # Try to read crop_ratios from existing debug file
-        figure_crop_ratios = None
-        debug_file_path = os.path.join(args.output_dir, "debug_dimensions.json")
-        if os.path.exists(debug_file_path):
-            try:
-                with open(debug_file_path, 'r') as f:
-                    prev_debug = json.load(f)
-                    if 'figure' in prev_debug and 'crop_ratios' in prev_debug['figure']:
-                        figure_crop_ratios = prev_debug['figure']['crop_ratios']
-                        print(f"  Loaded crop_ratios from debug file: {figure_crop_ratios}")
-            except Exception as e:
-                print(f"  WARNING: Could not read crop_ratios from debug file: {e}")
-
-        # If no crop_ratios found, calculate based on mesh touching card boundaries
-        if figure_crop_ratios is None and figure:
-            card_width = CARD_WIDTH / 1000.0
-            card_height = CARD_HEIGHT / 1000.0
-            card_half_w = card_width / 2.0
-            card_half_h = card_height / 2.0
-            tolerance = 0.001  # 1mm tolerance for detecting trim
-
-            fig_min, fig_max = world_aabb(figure)
-
-            # Check if figure touches card boundaries (indicates trimming occurred)
-            left_trimmed = abs(fig_min.x - (-card_half_w)) < tolerance
-            right_trimmed = abs(fig_max.x - card_half_w) < tolerance
-            bottom_trimmed = abs(fig_min.y - (-card_half_h)) < tolerance
-            top_trimmed = abs(fig_max.y - card_half_h) < tolerance
-
-            if left_trimmed or right_trimmed or bottom_trimmed or top_trimmed:
-                print(f"  WARNING: Figure touches card boundary - crop ratios unknown, using estimates")
-                # We can't know exact crop ratios without pre-trim data
-                # Use a reasonable default based on typical figure overflow
-                figure_crop_ratios = {
-                    'left': 0.02 if left_trimmed else 0,
-                    'right': 0.02 if right_trimmed else 0,
-                    'bottom': 0.02 if bottom_trimmed else 0,
-                    'top': 0.02 if top_trimmed else 0,
-                }
-                print(f"  Estimated crop_ratios: {figure_crop_ratios}")
-
-        # Measure figure - use world_aabb for POSITION, figure.dimensions for SIZE
-        # figure.dimensions represents the mesh plane that UV texture maps to
-        # world_aabb includes displacement expansion which doesn't match 2D texture
-        figure_pos = None
-        figure_dims = None
-        if figure:
-            fig_min, fig_max = world_aabb(figure)
-            fig_center_x = (fig_min.x + fig_max.x) / 2.0
-            fig_center_y = (fig_min.y + fig_max.y) / 2.0
-            figure_pos = (fig_center_x * 1000, fig_center_y * 1000)
-            # Use figure.dimensions (mesh plane) for texture alignment, NOT world_aabb
-            figure_dims = (figure.dimensions.x * 1000, figure.dimensions.y * 1000)
-            aabb_dims = ((fig_max.x - fig_min.x) * 1000, (fig_max.y - fig_min.y) * 1000)
-            print(f"  Figure: center=({figure_pos[0]:.1f}, {figure_pos[1]:.1f})mm")
-            print(f"    world_aabb: {aabb_dims[0]:.1f}x{aabb_dims[1]:.1f}mm (includes displacement)")
-            print(f"    mesh plane: {figure_dims[0]:.1f}x{figure_dims[1]:.1f}mm (for texture)")
-
-        # Measure accessories
-        acc_positions = []
-        acc_dims_list = []
-        acc_img_paths = []
-        acc_img_args = [args.acc1_img, args.acc2_img, args.acc3_img]
-
-        for i, acc in enumerate(accessories):
-            acc_min, acc_max = world_aabb(acc)
-            acc_center_x = (acc_min.x + acc_max.x) / 2.0
-            acc_center_y = (acc_min.y + acc_max.y) / 2.0
-            acc_width = (acc_max.x - acc_min.x) * 1000
-            acc_height = (acc_max.y - acc_min.y) * 1000
-            acc_positions.append((acc_center_x * 1000, acc_center_y * 1000))
-            acc_dims_list.append((acc_width, acc_height))
-            if i < len(acc_img_args) and acc_img_args[i]:
-                acc_img_paths.append(acc_img_args[i])
-            print(f"  Accessory_{i+1}: center=({acc_center_x*1000:.1f}, {acc_center_y*1000:.1f})mm, dims=({acc_width:.1f}x{acc_height:.1f})mm")
-
-        # Write detailed debug log with both 3D measurements and texture placement values
-        fig_world_aabb = None
-        fig_blender_dims = None
-        if figure:
-            fig_min, fig_max = world_aabb(figure)
-            fig_world_aabb = {
-                "width": (fig_max.x - fig_min.x) * 1000,
-                "height": (fig_max.y - fig_min.y) * 1000,
-                "center_x": (fig_min.x + fig_max.x) / 2.0 * 1000,
-                "center_y": (fig_min.y + fig_max.y) / 2.0 * 1000
-            }
-            fig_blender_dims = {
-                "x": figure.dimensions.x * 1000,
-                "y": figure.dimensions.y * 1000,
-                "z": figure.dimensions.z * 1000
-            }
-
-        debug_data = {
-            "timestamp": datetime.now().isoformat(),
-            "mode": "texture-only",
-            "blend_file": blend_file,
-            "figure": {
-                "stl_world_aabb_mm": fig_world_aabb,
-                "stl_blender_dimensions_mm": fig_blender_dims,
-                "texture_position_mm": {"x": figure_pos[0], "y": figure_pos[1]} if figure_pos else None,
-                "texture_dims_mm": {"width": figure_dims[0], "height": figure_dims[1]} if figure_dims else None,
-                "crop_ratios": figure_crop_ratios
-            },
-            "accessories": []
-        }
-
-        # Add detailed accessory debug info
-        for i, acc in enumerate(accessories):
-            acc_min, acc_max = world_aabb(acc)
-            acc_world_aabb = {
-                "width": (acc_max.x - acc_min.x) * 1000,
-                "height": (acc_max.y - acc_min.y) * 1000,
-                "center_x": (acc_min.x + acc_max.x) / 2.0 * 1000,
-                "center_y": (acc_min.y + acc_max.y) / 2.0 * 1000
-            }
-            acc_blender_dims = {
-                "x": acc.dimensions.x * 1000,
-                "y": acc.dimensions.y * 1000,
-                "z": acc.dimensions.z * 1000
-            }
-            debug_data["accessories"].append({
-                "index": i + 1,
-                "stl_world_aabb_mm": acc_world_aabb,
-                "stl_blender_dimensions_mm": acc_blender_dims,
-                "texture_position_mm": {"x": acc_positions[i][0], "y": acc_positions[i][1]} if i < len(acc_positions) else None,
-                "texture_dims_mm": {"width": acc_dims_list[i][0], "height": acc_dims_list[i][1]} if i < len(acc_dims_list) else None
-            })
-
-        write_debug_log(args.output_dir, debug_data)
-
-        # Regenerate texture only
-        texture_path = os.path.join(args.output_dir, f"{args.job_id}_texture.png")
-        create_uv_print_texture(
-            texture_path=texture_path,
-            figure_img_path=args.figure_img,
-            figure_pos=figure_pos,
-            figure_dims=figure_dims,
-            acc_images=acc_img_paths,
-            acc_positions=acc_positions,
-            acc_dims=acc_dims_list,
-            dpi=300,
-            background_type=args.background_type,
-            background_color=args.background_color,
-            background_image=args.background_image if args.background_image else None,
-            text_objects=text_objects,
-            figure_crop_ratios=figure_crop_ratios
-        )
-
-        print(f"\n=== TEXTURE-ONLY COMPLETE ===")
-        print(f"  Texture: {texture_path}")
-        return
-
-    # ============================================================
-    # NORMAL MODE: Full generation
-    # ============================================================
-
-    # Apply custom spacing if provided
-    ACC_VERTICAL_SPACING = args.acc_spacing
-
     clear_scene()
+    os.makedirs(args.output_dir, exist_ok=True)
 
     # Calculate layout for positioning
     layout = calculate_layout()
@@ -1805,16 +1346,15 @@ def main():
 
     # Step 2: Create and position figure
     figure_top_z = None
-    figure = create_displaced_mesh(args.figure_depth, args.figure_img, name="Figure",
-                                   displacement_strength=args.displacement_figure)
+    figure = create_displaced_mesh(args.figure_depth, args.figure_img, name="Figure")
     figure_pos = None
     figure_dims = None
-    figure_crop_ratios = None
     if figure:
-        figure_top_z, figure_pos, figure_dims, figure_crop_ratios = position_figure(figure, card, layout)
+        figure_top_z, figure_pos, figure_dims = position_figure(figure, card, layout)
         print(f"  Figure top Z: {figure_top_z*1000:.1f}mm")
-        print(f"  Figure dims (from position_figure): ({figure_pos[0]:.1f}, {figure_pos[1]:.1f})mm, {figure_dims[0]:.1f}x{figure_dims[1]:.1f}mm")
-        print(f"  Figure crop ratios: {figure_crop_ratios}")
+        # Use PRE-TRIM position and dimensions for texture alignment
+        # This ensures the 2D texture matches the full figure, not the trimmed 3D model
+        print(f"  Using pre-trim dims for texture: ({figure_pos[0]:.1f}, {figure_pos[1]:.1f})mm, {figure_dims[0]:.1f}x{figure_dims[1]:.1f}mm")
 
     # Step 3: Create and position accessories (with higher displacement strength)
     accessories = []
@@ -1828,104 +1368,17 @@ def main():
     ]):
         if depth and img and os.path.exists(depth) and os.path.exists(img):
             acc = create_displaced_mesh(depth, img, name=f"Accessory_{i+1}",
-                                        displacement_strength=args.displacement_accessories)
+                                        displacement_strength=DISPLACEMENT_STRENGTH_ACCESSORIES)
             if acc:
                 position_accessory(acc, card, layout, i, figure_top_z)
                 accessories.append(acc)
                 # Store BOUNDING BOX center and dimensions for UV print texture
-                # Use world_aabb for both position and dimensions (consistent and accurate)
                 acc_min, acc_max = world_aabb(acc)
                 acc_center_x = (acc_min.x + acc_max.x) / 2.0
                 acc_center_y = (acc_min.y + acc_max.y) / 2.0
-                acc_width = (acc_max.x - acc_min.x) * 1000
-                acc_height = (acc_max.y - acc_min.y) * 1000
                 acc_positions.append((acc_center_x * 1000, acc_center_y * 1000))
-                acc_dims_list.append((acc_width, acc_height))
+                acc_dims_list.append((acc.dimensions.x * 1000, acc.dimensions.y * 1000))
                 acc_img_paths.append(img)
-
-    # ============================================================
-    # DEBUG: Log all dimensions for troubleshooting
-    # ============================================================
-    # Re-measure figure with world_aabb NOW to compare with what was captured earlier
-    bpy.context.view_layer.update()
-    fig_aabb_now = None
-    if figure:
-        fig_min_now, fig_max_now = world_aabb(figure)
-        fig_aabb_now = {
-            "width": (fig_max_now.x - fig_min_now.x) * 1000,
-            "height": (fig_max_now.y - fig_min_now.y) * 1000,
-            "center_x": (fig_min_now.x + fig_max_now.x) / 2.0 * 1000,
-            "center_y": (fig_min_now.y + fig_max_now.y) / 2.0 * 1000
-        }
-
-    debug_data = {
-        "timestamp": datetime.now().isoformat(),
-        "notes": {
-            "blender_object_dimensions": "What you see in N-panel > Dimensions (may not include modifiers)",
-            "world_aabb_current": "Fresh world_aabb() measurement NOW (includes all modifiers)",
-            "texture_dims": "What's being passed to place_image() for 2D texture"
-        },
-        "card": {
-            "constants_mm": {
-                "width": CARD_WIDTH,
-                "height": CARD_HEIGHT,
-                "thickness": CARD_THICKNESS
-            },
-            "blender_object_dimensions_mm": {
-                "x": card.dimensions.x * 1000,
-                "y": card.dimensions.y * 1000,
-                "z": card.dimensions.z * 1000
-            }
-        },
-        "figure": {
-            "blender_object_dimensions_mm": {
-                "x": figure.dimensions.x * 1000 if figure else None,
-                "y": figure.dimensions.y * 1000 if figure else None,
-                "z": figure.dimensions.z * 1000 if figure else None
-            },
-            "world_aabb_current_mm": fig_aabb_now,
-            "texture_position_mm": {
-                "center_x": figure_pos[0] if figure_pos else None,
-                "center_y": figure_pos[1] if figure_pos else None
-            },
-            "texture_dims_mm": {
-                "width": figure_dims[0] if figure_dims else None,
-                "height": figure_dims[1] if figure_dims else None
-            },
-            "crop_ratios": figure_crop_ratios
-        },
-        "accessories": []
-    }
-
-    # Add accessory debug info with fresh world_aabb measurements
-    for i, acc in enumerate(accessories):
-        acc_min_now, acc_max_now = world_aabb(acc)
-        acc_aabb_now = {
-            "width": (acc_max_now.x - acc_min_now.x) * 1000,
-            "height": (acc_max_now.y - acc_min_now.y) * 1000,
-            "center_x": (acc_min_now.x + acc_max_now.x) / 2.0 * 1000,
-            "center_y": (acc_min_now.y + acc_max_now.y) / 2.0 * 1000
-        }
-        acc_debug = {
-            "index": i + 1,
-            "blender_object_dimensions_mm": {
-                "x": acc.dimensions.x * 1000,
-                "y": acc.dimensions.y * 1000,
-                "z": acc.dimensions.z * 1000
-            },
-            "world_aabb_current_mm": acc_aabb_now,
-            "texture_position_mm": {
-                "center_x": acc_positions[i][0] if i < len(acc_positions) else None,
-                "center_y": acc_positions[i][1] if i < len(acc_positions) else None
-            },
-            "texture_dims_mm": {
-                "width": acc_dims_list[i][0] if i < len(acc_dims_list) else None,
-                "height": acc_dims_list[i][1] if i < len(acc_dims_list) else None
-            }
-        }
-        debug_data["accessories"].append(acc_debug)
-
-    write_debug_log(args.output_dir, debug_data)
 
     # Save blend file
     blend_path = os.path.join(args.output_dir, f"{args.job_id}.blend")
@@ -1936,7 +1389,7 @@ def main():
     stl_path = os.path.join(args.output_dir, f"{args.job_id}.stl")
     export_stl(card, figure, accessories, stl_path, text_objects=text_objects)
 
-    # Create UV print texture (with background options)
+    # Create UV print texture (transparent background, original 2D images, text)
     texture_path = os.path.join(args.output_dir, f"{args.job_id}_texture.png")
     create_uv_print_texture(
         texture_path=texture_path,
@@ -1946,12 +1399,8 @@ def main():
         acc_images=acc_img_paths,
         acc_positions=acc_positions,
         acc_dims=acc_dims_list,
-        dpi=300,
-        background_type=args.background_type,
-        background_color=args.background_color,
-        background_image=args.background_image if args.background_image else None,
-        text_objects=text_objects,  # Blender text objects for exact STL shape matching
-        figure_crop_ratios=figure_crop_ratios  # Crop 2D image to match trimmed 3D mesh
+        text_objects=text_objects,
+        dpi=300
     )
 
     print("\n" + "=" * 60)

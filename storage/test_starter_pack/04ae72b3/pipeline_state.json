@@ -1,0 +1,159 @@
+{
+  "steps_completed": [
+    1,
+    3,
+    4
+  ],
+  "data": {
+    "step_1": {
+      "figure_img": {
+        "type": "base_character",
+        "method": "image_edit",
+        "model_used": "gpt-image-1.5",
+        "prompt": "Create a HYPERREALISTIC full-body portrait of this exact person for UV printing:\n\nCAMERA ANGLE (CRITICAL - FLAT LAY VIEW):\n- TOP-DOWN / FLAT LAY perspective - as if the figure is lying flat and photographed from directly above\n- NO perspective distortion - orthographic style view\n- Figure should appear flat like a paper doll or action figure in packaging\n- This prevents weird 3D angles and ensures clean 2.5D conversion\n\nFACE & SKIN (CRITICAL - HIGHEST PRIORITY):\n- EXACT facial likeness - preserve every facial feature precisely as in the input photo\n- Hyperrealistic skin texture with visible pores, subtle wrinkles, natural skin imperfections\n- Accurate skin tone matching the original photo exactly\n- Natural skin subsurface scattering and realistic flesh tones\n- Detailed eyes with realistic iris patterns, reflections, and natural eye moisture\n- Natural hair texture with individual strand details, accurate hair color\n- Realistic lips with natural color and subtle texture\n- Face forward, neutral expression\n\nPOSE - EXTREMELY IMPORTANT - MUST FOLLOW EXACTLY:\n- A-POSE ONLY: Arms STRAIGHT down, touching the sides of the thighs\n- Arms must be FULLY EXTENDED downward, NOT bent at elbows\n- Hands open with fingers pointing DOWN toward the ground, palms facing inward toward thighs\n- NO fists, NO gloves visible on hands, NO bent arms\n- Arms should form a straight vertical line from shoulder to fingertips\n- Standing like a wooden mannequin or store display dummy\n- Legs straight, feet together or slightly apart\n- This is a NEUTRAL REFERENCE POSE for 3D scanning - absolutely NO action poses\n\nFULL BODY REQUIREMENTS:\n- Complete full-body view from head to feet - nothing cropped\n- Natural human proportions (not stylized or cartoonish)\n- Feet flat on ground, legs straight\n\nCLOTHING & FABRIC:\n- Hyperrealistic fabric textures - visible weave, stitching, material properties\n- Accurate colors matching any visible clothing from original photo\n- Natural fabric folds and draping\n- Realistic material properties (cotton, denim, leather, etc.)\n- Clean, unbranded clothing - no text or logos\n\nLIGHTING & COLOR (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Vibrant, saturated colors optimized for print reproduction\n- High color accuracy - colors must print true to screen\n- Soft diffused lighting that reveals all details\n- No dark shadows that would print as black areas\n- Clean highlight areas without blown-out whites\n\nCOMPOSITION:\n- Centered in frame with small margin on all sides\n- Full body visible with no cropping\n- Pure transparent background (PNG with alpha)\n- Sharp, clean edges around the figure\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a professional photograph\n- Maximum detail and sharpness\n- Print-ready color profile\n- Clean silhouette for easy background separation\n\nCRITICAL: This is for UV PRINTING - colors must be vibrant and accurate. Face must be IDENTICAL to input photo. Hyperrealistic quality, not stylized or cartoon.",
+        "size": "1024x1536",
+        "quality": "high",
+        "input_fidelity": "high",
+        "transparent_background": true,
+        "file_path": "./storage/generated/04ae72b3/base_character_20260203_230646.png",
+        "filename": "base_character_20260203_230646.png",
+        "url": "/storage/generated/04ae72b3/base_character_20260203_230646.png",
+        "generated_at": "2026-02-03T23:06:46.127198",
+        "tokens_used": 14021
+      },
+      "accessory_imgs": [
+        {
+          "type": "accessory_1",
+          "method": "image_generation",
+          "model_used": "gpt-image-1.5",
+          "prompt": "Create a HYPERREALISTIC women bag for UV printing:\n\nACCESSORY REQUIREMENTS:\n- ONLY ONE single women bag in the image - no duplicates, no multiple items\n- PHOTOREALISTIC quality - should look like a professional product photograph\n- Hyperrealistic materials with visible surface details, textures, and imperfections\n- Real-world accurate proportions and scale\n- Premium quality finish with realistic material properties\n\nMATERIAL & TEXTURE (CRITICAL FOR UV PRINTING):\n- Hyperrealistic surface textures - visible grain, scratches, wear patterns where appropriate\n- Accurate material properties (metal reflections, fabric weave, leather grain, etc.)\n- Natural material imperfections that add realism\n- True-to-life colors that will print accurately\n- Realistic subsurface scattering for translucent materials\n- Visible fine details like stitching, seams, engraving, embossing\n\nCAMERA ANGLE (CRITICAL FOR 3D CONVERSION - MUST FOLLOW EXACTLY):\n- FLAT LAY / TOP-DOWN view - camera looking STRAIGHT DOWN at the object from directly above\n- Object lying completely FLAT on surface, photographed from 90 degrees above\n- NO perspective, NO 3D angles, NO tilting - pure orthographic top-down view\n- Like photographing an object placed flat on a table, camera pointing straight down\n- Shows the full shape and outline of the object clearly as a 2D silhouette\n- Front face of the object should be visible and facing up toward camera\n- This prevents weird 3D angles and ensures clean 2.5D lithophane conversion\n\nLIGHTING (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Soft, diffused light from all directions\n- NO cast shadows on or around the object\n- NO dark ambient occlusion shadows\n- Colors must be vibrant and saturated for print reproduction\n- No blown-out highlights or crushed blacks\n- Pure transparent background (PNG with alpha)\n\nCOMPOSITION (CRITICAL):\n- ONE accessory only - single item, not a set or collection\n- Centered in the middle of the image\n- Complete item visible with no cropping at all\n- Isolated item on pure transparent background\n- No other objects, props, or accessories in the scene\n- Sharp, clean edges around the object\n- Object should fill about 70% of the frame\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a real photograph\n- Maximum detail and sharpness\n- Print-ready vibrant colors\n- Clean silhouette for easy background separation\n\nCRITICAL: Generate exactly ONE hyperrealistic women bag - single item only, flat lay angle from above, NO SHADOWS, centered, complete, photorealistic quality for UV printing.",
+          "size": "1024x1536",
+          "quality": "high",
+          "transparent_background": true,
+          "accessory": "women bag",
+          "file_path": "./storage/generated/04ae72b3/accessory_1_20260203_230735.png",
+          "filename": "accessory_1_20260203_230735.png",
+          "url": "/storage/generated/04ae72b3/accessory_1_20260203_230735.png",
+          "generated_at": "2026-02-03T23:07:35.409174",
+          "tokens_used": 7150
+        },
+        {
+          "type": "accessory_2",
+          "method": "image_generation",
+          "model_used": "gpt-image-1.5",
+          "prompt": "Create a HYPERREALISTIC mercedes car key for UV printing:\n\nACCESSORY REQUIREMENTS:\n- ONLY ONE single mercedes car key in the image - no duplicates, no multiple items\n- PHOTOREALISTIC quality - should look like a professional product photograph\n- Hyperrealistic materials with visible surface details, textures, and imperfections\n- Real-world accurate proportions and scale\n- Premium quality finish with realistic material properties\n\nMATERIAL & TEXTURE (CRITICAL FOR UV PRINTING):\n- Hyperrealistic surface textures - visible grain, scratches, wear patterns where appropriate\n- Accurate material properties (metal reflections, fabric weave, leather grain, etc.)\n- Natural material imperfections that add realism\n- True-to-life colors that will print accurately\n- Realistic subsurface scattering for translucent materials\n- Visible fine details like stitching, seams, engraving, embossing\n\nCAMERA ANGLE (CRITICAL FOR 3D CONVERSION - MUST FOLLOW EXACTLY):\n- FLAT LAY / TOP-DOWN view - camera looking STRAIGHT DOWN at the object from directly above\n- Object lying completely FLAT on surface, photographed from 90 degrees above\n- NO perspective, NO 3D angles, NO tilting - pure orthographic top-down view\n- Like photographing an object placed flat on a table, camera pointing straight down\n- Shows the full shape and outline of the object clearly as a 2D silhouette\n- Front face of the object should be visible and facing up toward camera\n- This prevents weird 3D angles and ensures clean 2.5D lithophane conversion\n\nLIGHTING (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Soft, diffused light from all directions\n- NO cast shadows on or around the object\n- NO dark ambient occlusion shadows\n- Colors must be vibrant and saturated for print reproduction\n- No blown-out highlights or crushed blacks\n- Pure transparent background (PNG with alpha)\n\nCOMPOSITION (CRITICAL):\n- ONE accessory only - single item, not a set or collection\n- Centered in the middle of the image\n- Complete item visible with no cropping at all\n- Isolated item on pure transparent background\n- No other objects, props, or accessories in the scene\n- Sharp, clean edges around the object\n- Object should fill about 70% of the frame\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a real photograph\n- Maximum detail and sharpness\n- Print-ready vibrant colors\n- Clean silhouette for easy background separation\n\nCRITICAL: Generate exactly ONE hyperrealistic mercedes car key - single item only, flat lay angle from above, NO SHADOWS, centered, complete, photorealistic quality for UV printing.",
+          "size": "1024x1536",
+          "quality": "high",
+          "transparent_background": true,
+          "accessory": "mercedes car key",
+          "file_path": "./storage/generated/04ae72b3/accessory_2_20260203_230821.png",
+          "filename": "accessory_2_20260203_230821.png",
+          "url": "/storage/generated/04ae72b3/accessory_2_20260203_230821.png",
+          "generated_at": "2026-02-03T23:08:21.395243",
+          "tokens_used": 7188
+        },
+        {
+          "type": "accessory_3",
+          "method": "image_generation",
+          "model_used": "gpt-image-1.5",
+          "prompt": "Create a HYPERREALISTIC make up for UV printing:\n\nACCESSORY REQUIREMENTS:\n- ONLY ONE single make up in the image - no duplicates, no multiple items\n- PHOTOREALISTIC quality - should look like a professional product photograph\n- Hyperrealistic materials with visible surface details, textures, and imperfections\n- Real-world accurate proportions and scale\n- Premium quality finish with realistic material properties\n\nMATERIAL & TEXTURE (CRITICAL FOR UV PRINTING):\n- Hyperrealistic surface textures - visible grain, scratches, wear patterns where appropriate\n- Accurate material properties (metal reflections, fabric weave, leather grain, etc.)\n- Natural material imperfections that add realism\n- True-to-life colors that will print accurately\n- Realistic subsurface scattering for translucent materials\n- Visible fine details like stitching, seams, engraving, embossing\n\nCAMERA ANGLE (CRITICAL FOR 3D CONVERSION - MUST FOLLOW EXACTLY):\n- FLAT LAY / TOP-DOWN view - camera looking STRAIGHT DOWN at the object from directly above\n- Object lying completely FLAT on surface, photographed from 90 degrees above\n- NO perspective, NO 3D angles, NO tilting - pure orthographic top-down view\n- Like photographing an object placed flat on a table, camera pointing straight down\n- Shows the full shape and outline of the object clearly as a 2D silhouette\n- Front face of the object should be visible and facing up toward camera\n- This prevents weird 3D angles and ensures clean 2.5D lithophane conversion\n\nLIGHTING (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Soft, diffused light from all directions\n- NO cast shadows on or around the object\n- NO dark ambient occlusion shadows\n- Colors must be vibrant and saturated for print reproduction\n- No blown-out highlights or crushed blacks\n- Pure transparent background (PNG with alpha)\n\nCOMPOSITION (CRITICAL):\n- ONE accessory only - single item, not a set or collection\n- Centered in the middle of the image\n- Complete item visible with no cropping at all\n- Isolated item on pure transparent background\n- No other objects, props, or accessories in the scene\n- Sharp, clean edges around the object\n- Object should fill about 70% of the frame\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a real photograph\n- Maximum detail and sharpness\n- Print-ready vibrant colors\n- Clean silhouette for easy background separation\n\nCRITICAL: Generate exactly ONE hyperrealistic make up - single item only, flat lay angle from above, NO SHADOWS, centered, complete, photorealistic quality for UV printing.",
+          "size": "1024x1536",
+          "quality": "high",
+          "transparent_background": true,
+          "accessory": "make up",
+          "file_path": "./storage/generated/04ae72b3/accessory_3_20260203_230911.png",
+          "filename": "accessory_3_20260203_230911.png",
+          "url": "/storage/generated/04ae72b3/accessory_3_20260203_230911.png",
+          "generated_at": "2026-02-03T23:09:11.845505",
+          "tokens_used": 7222
+        }
+      ]
+    },
+    "step_3": {
+      "figure_img": {
+        "type": "base_character",
+        "method": "image_edit",
+        "model_used": "gpt-image-1.5",
+        "prompt": "Create a HYPERREALISTIC full-body portrait of this exact person for UV printing:\n\nCAMERA ANGLE (CRITICAL - FLAT LAY VIEW):\n- TOP-DOWN / FLAT LAY perspective - as if the figure is lying flat and photographed from directly above\n- NO perspective distortion - orthographic style view\n- Figure should appear flat like a paper doll or action figure in packaging\n- This prevents weird 3D angles and ensures clean 2.5D conversion\n\nFACE & SKIN (CRITICAL - HIGHEST PRIORITY):\n- EXACT facial likeness - preserve every facial feature precisely as in the input photo\n- Hyperrealistic skin texture with visible pores, subtle wrinkles, natural skin imperfections\n- Accurate skin tone matching the original photo exactly\n- Natural skin subsurface scattering and realistic flesh tones\n- Detailed eyes with realistic iris patterns, reflections, and natural eye moisture\n- Natural hair texture with individual strand details, accurate hair color\n- Realistic lips with natural color and subtle texture\n- Face forward, neutral expression\n\nPOSE - EXTREMELY IMPORTANT - MUST FOLLOW EXACTLY:\n- A-POSE ONLY: Arms STRAIGHT down, touching the sides of the thighs\n- Arms must be FULLY EXTENDED downward, NOT bent at elbows\n- Hands open with fingers pointing DOWN toward the ground, palms facing inward toward thighs\n- NO fists, NO gloves visible on hands, NO bent arms\n- Arms should form a straight vertical line from shoulder to fingertips\n- Standing like a wooden mannequin or store display dummy\n- Legs straight, feet together or slightly apart\n- This is a NEUTRAL REFERENCE POSE for 3D scanning - absolutely NO action poses\n\nFULL BODY REQUIREMENTS:\n- Complete full-body view from head to feet - nothing cropped\n- Natural human proportions (not stylized or cartoonish)\n- Feet flat on ground, legs straight\n\nCLOTHING & FABRIC:\n- Hyperrealistic fabric textures - visible weave, stitching, material properties\n- Accurate colors matching any visible clothing from original photo\n- Natural fabric folds and draping\n- Realistic material properties (cotton, denim, leather, etc.)\n- Clean, unbranded clothing - no text or logos\n\nLIGHTING & COLOR (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Vibrant, saturated colors optimized for print reproduction\n- High color accuracy - colors must print true to screen\n- Soft diffused lighting that reveals all details\n- No dark shadows that would print as black areas\n- Clean highlight areas without blown-out whites\n\nCOMPOSITION:\n- Centered in frame with small margin on all sides\n- Full body visible with no cropping\n- Pure transparent background (PNG with alpha)\n- Sharp, clean edges around the figure\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a professional photograph\n- Maximum detail and sharpness\n- Print-ready color profile\n- Clean silhouette for easy background separation\n\nCRITICAL: This is for UV PRINTING - colors must be vibrant and accurate. Face must be IDENTICAL to input photo. Hyperrealistic quality, not stylized or cartoon.",
+        "size": "1024x1536",
+        "quality": "high",
+        "input_fidelity": "high",
+        "transparent_background": true,
+        "file_path": "./storage/generated/04ae72b3/base_character_20260203_230646.png",
+        "filename": "base_character_20260203_230646.png",
+        "url": "/storage/generated/04ae72b3/base_character_20260203_230646.png",
+        "generated_at": "2026-02-03T23:06:46.127198",
+        "tokens_used": 14021,
+        "original_path": "./storage/generated/04ae72b3/base_character_20260203_230646.png",
+        "nobg_path": "./storage/test_starter_pack/04ae72b3/figure_nobg.png",
+        "nobg_url": "https://sculptok.oss-us-west-1.aliyuncs.com/sculptok/2017173021049786370/steprm/f178a92c-cb09-4a8b-bcee-513632c2cb51_steprm.png"
+      },
+      "accessory_imgs": [
+        {
+          "type": "accessory_1",
+          "method": "image_generation",
+          "model_used": "gpt-image-1.5",
+          "prompt": "Create a HYPERREALISTIC women bag for UV printing:\n\nACCESSORY REQUIREMENTS:\n- ONLY ONE single women bag in the image - no duplicates, no multiple items\n- PHOTOREALISTIC quality - should look like a professional product photograph\n- Hyperrealistic materials with visible surface details, textures, and imperfections\n- Real-world accurate proportions and scale\n- Premium quality finish with realistic material properties\n\nMATERIAL & TEXTURE (CRITICAL FOR UV PRINTING):\n- Hyperrealistic surface textures - visible grain, scratches, wear patterns where appropriate\n- Accurate material properties (metal reflections, fabric weave, leather grain, etc.)\n- Natural material imperfections that add realism\n- True-to-life colors that will print accurately\n- Realistic subsurface scattering for translucent materials\n- Visible fine details like stitching, seams, engraving, embossing\n\nCAMERA ANGLE (CRITICAL FOR 3D CONVERSION - MUST FOLLOW EXACTLY):\n- FLAT LAY / TOP-DOWN view - camera looking STRAIGHT DOWN at the object from directly above\n- Object lying completely FLAT on surface, photographed from 90 degrees above\n- NO perspective, NO 3D angles, NO tilting - pure orthographic top-down view\n- Like photographing an object placed flat on a table, camera pointing straight down\n- Shows the full shape and outline of the object clearly as a 2D silhouette\n- Front face of the object should be visible and facing up toward camera\n- This prevents weird 3D angles and ensures clean 2.5D lithophane conversion\n\nLIGHTING (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Soft, diffused light from all directions\n- NO cast shadows on or around the object\n- NO dark ambient occlusion shadows\n- Colors must be vibrant and saturated for print reproduction\n- No blown-out highlights or crushed blacks\n- Pure transparent background (PNG with alpha)\n\nCOMPOSITION (CRITICAL):\n- ONE accessory only - single item, not a set or collection\n- Centered in the middle of the image\n- Complete item visible with no cropping at all\n- Isolated item on pure transparent background\n- No other objects, props, or accessories in the scene\n- Sharp, clean edges around the object\n- Object should fill about 70% of the frame\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a real photograph\n- Maximum detail and sharpness\n- Print-ready vibrant colors\n- Clean silhouette for easy background separation\n\nCRITICAL: Generate exactly ONE hyperrealistic women bag - single item only, flat lay angle from above, NO SHADOWS, centered, complete, photorealistic quality for UV printing.",
+          "size": "1024x1536",
+          "quality": "high",
+          "transparent_background": true,
+          "accessory": "women bag",
+          "file_path": "./storage/generated/04ae72b3/accessory_1_20260203_230735.png",
+          "filename": "accessory_1_20260203_230735.png",
+          "url": "/storage/generated/04ae72b3/accessory_1_20260203_230735.png",
+          "generated_at": "2026-02-03T23:07:35.409174",
+          "tokens_used": 7150,
+          "original_path": "./storage/generated/04ae72b3/accessory_1_20260203_230735.png",
+          "nobg_path": "./storage/test_starter_pack/04ae72b3/accessory_1_nobg.png",
+          "nobg_url": "https://sculptok.oss-us-west-1.aliyuncs.com/sculptok/2017173021049786370/steprm/d346807b-fccf-4bc2-9526-d17dc66f2a3e_steprm.png"
+        },
+        {
+          "type": "accessory_2",
+          "method": "image_generation",
+          "model_used": "gpt-image-1.5",
+          "prompt": "Create a HYPERREALISTIC mercedes car key for UV printing:\n\nACCESSORY REQUIREMENTS:\n- ONLY ONE single mercedes car key in the image - no duplicates, no multiple items\n- PHOTOREALISTIC quality - should look like a professional product photograph\n- Hyperrealistic materials with visible surface details, textures, and imperfections\n- Real-world accurate proportions and scale\n- Premium quality finish with realistic material properties\n\nMATERIAL & TEXTURE (CRITICAL FOR UV PRINTING):\n- Hyperrealistic surface textures - visible grain, scratches, wear patterns where appropriate\n- Accurate material properties (metal reflections, fabric weave, leather grain, etc.)\n- Natural material imperfections that add realism\n- True-to-life colors that will print accurately\n- Realistic subsurface scattering for translucent materials\n- Visible fine details like stitching, seams, engraving, embossing\n\nCAMERA ANGLE (CRITICAL FOR 3D CONVERSION - MUST FOLLOW EXACTLY):\n- FLAT LAY / TOP-DOWN view - camera looking STRAIGHT DOWN at the object from directly above\n- Object lying completely FLAT on surface, photographed from 90 degrees above\n- NO perspective, NO 3D angles, NO tilting - pure orthographic top-down view\n- Like photographing an object placed flat on a table, camera pointing straight down\n- Shows the full shape and outline of the object clearly as a 2D silhouette\n- Front face of the object should be visible and facing up toward camera\n- This prevents weird 3D angles and ensures clean 2.5D lithophane conversion\n\nLIGHTING (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Soft, diffused light from all directions\n- NO cast shadows on or around the object\n- NO dark ambient occlusion shadows\n- Colors must be vibrant and saturated for print reproduction\n- No blown-out highlights or crushed blacks\n- Pure transparent background (PNG with alpha)\n\nCOMPOSITION (CRITICAL):\n- ONE accessory only - single item, not a set or collection\n- Centered in the middle of the image\n- Complete item visible with no cropping at all\n- Isolated item on pure transparent background\n- No other objects, props, or accessories in the scene\n- Sharp, clean edges around the object\n- Object should fill about 70% of the frame\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a real photograph\n- Maximum detail and sharpness\n- Print-ready vibrant colors\n- Clean silhouette for easy background separation\n\nCRITICAL: Generate exactly ONE hyperrealistic mercedes car key - single item only, flat lay angle from above, NO SHADOWS, centered, complete, photorealistic quality for UV printing.",
+          "size": "1024x1536",
+          "quality": "high",
+          "transparent_background": true,
+          "accessory": "mercedes car key",
+          "file_path": "./storage/generated/04ae72b3/accessory_2_20260203_230821.png",
+          "filename": "accessory_2_20260203_230821.png",
+          "url": "/storage/generated/04ae72b3/accessory_2_20260203_230821.png",
+          "generated_at": "2026-02-03T23:08:21.395243",
+          "tokens_used": 7188,
+          "original_path": "./storage/generated/04ae72b3/accessory_2_20260203_230821.png",
+          "nobg_path": "./storage/test_starter_pack/04ae72b3/accessory_2_nobg.png",
+          "nobg_url": "https://sculptok.oss-us-west-1.aliyuncs.com/sculptok/2017173021049786370/steprm/73a8eb74-eca8-48f8-9937-4b199748ff19_steprm.png"
+        },
+        {
+          "type": "accessory_3",
+          "method": "image_generation",
+          "model_used": "gpt-image-1.5",
+          "prompt": "Create a HYPERREALISTIC make up for UV printing:\n\nACCESSORY REQUIREMENTS:\n- ONLY ONE single make up in the image - no duplicates, no multiple items\n- PHOTOREALISTIC quality - should look like a professional product photograph\n- Hyperrealistic materials with visible surface details, textures, and imperfections\n- Real-world accurate proportions and scale\n- Premium quality finish with realistic material properties\n\nMATERIAL & TEXTURE (CRITICAL FOR UV PRINTING):\n- Hyperrealistic surface textures - visible grain, scratches, wear patterns where appropriate\n- Accurate material properties (metal reflections, fabric weave, leather grain, etc.)\n- Natural material imperfections that add realism\n- True-to-life colors that will print accurately\n- Realistic subsurface scattering for translucent materials\n- Visible fine details like stitching, seams, engraving, embossing\n\nCAMERA ANGLE (CRITICAL FOR 3D CONVERSION - MUST FOLLOW EXACTLY):\n- FLAT LAY / TOP-DOWN view - camera looking STRAIGHT DOWN at the object from directly above\n- Object lying completely FLAT on surface, photographed from 90 degrees above\n- NO perspective, NO 3D angles, NO tilting - pure orthographic top-down view\n- Like photographing an object placed flat on a table, camera pointing straight down\n- Shows the full shape and outline of the object clearly as a 2D silhouette\n- Front face of the object should be visible and facing up toward camera\n- This prevents weird 3D angles and ensures clean 2.5D lithophane conversion\n\nLIGHTING (CRITICAL FOR UV PRINTING):\n- Bright, even front lighting - no harsh shadows\n- Soft, diffused light from all directions\n- NO cast shadows on or around the object\n- NO dark ambient occlusion shadows\n- Colors must be vibrant and saturated for print reproduction\n- No blown-out highlights or crushed blacks\n- Pure transparent background (PNG with alpha)\n\nCOMPOSITION (CRITICAL):\n- ONE accessory only - single item, not a set or collection\n- Centered in the middle of the image\n- Complete item visible with no cropping at all\n- Isolated item on pure transparent background\n- No other objects, props, or accessories in the scene\n- Sharp, clean edges around the object\n- Object should fill about 70% of the frame\n- High resolution details throughout\n\nOUTPUT QUALITY:\n- Photorealistic quality - should look like a real photograph\n- Maximum detail and sharpness\n- Print-ready vibrant colors\n- Clean silhouette for easy background separation\n\nCRITICAL: Generate exactly ONE hyperrealistic make up - single item only, flat lay angle from above, NO SHADOWS, centered, complete, photorealistic quality for UV printing.",
+          "size": "1024x1536",
+          "quality": "high",
+          "transparent_background": true,
+          "accessory": "make up",
+          "file_path": "./storage/generated/04ae72b3/accessory_3_20260203_230911.png",
+          "filename": "accessory_3_20260203_230911.png",
+          "url": "/storage/generated/04ae72b3/accessory_3_20260203_230911.png",
+          "generated_at": "2026-02-03T23:09:11.845505",
+          "tokens_used": 7222,
+          "original_path": "./storage/generated/04ae72b3/accessory_3_20260203_230911.png",
+          "nobg_path": "./storage/test_starter_pack/04ae72b3/accessory_3_nobg.png",
+          "nobg_url": "https://sculptok.oss-us-west-1.aliyuncs.com/sculptok/2017173021049786370/steprm/f6b78908-abb9-4e2b-869a-481e32dd31a3_steprm.png"
+        }
+      ]
+    },
+    "step_4": {
+      "depth_maps": {
+        "figure": "./storage/test_starter_pack/04ae72b3/figure_depth.png",
+        "accessory_1": "./storage/test_starter_pack/04ae72b3/accessory_1_depth.png",
+        "accessory_2": "./storage/test_starter_pack/04ae72b3/accessory_2_depth.png",
+        "accessory_3": "./storage/test_starter_pack/04ae72b3/accessory_3_depth.png"
+      }
+    }
+  },
+  "last_step": 4,
+  "updated_at": "2026-02-03T23:13:28.615555"
+}

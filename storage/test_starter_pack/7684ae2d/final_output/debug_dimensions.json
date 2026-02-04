@@ -1,0 +1,100 @@
+{
+  "timestamp": "2026-02-04T06:41:49.191485",
+  "mode": "texture-only",
+  "blend_file": "./storage/test_starter_pack/7684ae2d/final_output/7684ae2d.blend",
+  "figure": {
+    "stl_world_aabb_mm": {
+      "width": 83.86783674359322,
+      "height": 134.64000076055527,
+      "center_x": -23.05391989648342,
+      "center_y": -12.75000348687172
+    },
+    "stl_blender_dimensions_mm": {
+      "x": 83.86783301830292,
+      "y": 134.63999330997467,
+      "z": 0.0
+    },
+    "texture_position_mm": {
+      "x": -23.05391989648342,
+      "y": -12.75000348687172
+    },
+    "texture_dims_mm": {
+      "width": 83.86783301830292,
+      "height": 134.63999330997467
+    },
+    "crop_ratios": {
+      "left": 0.06564346796312527,
+      "right": 8.300557888796264e-08,
+      "bottom": 0,
+      "top": 0
+    }
+  },
+  "accessories": [
+    {
+      "index": 1,
+      "stl_world_aabb_mm": {
+        "width": 34.32000242173672,
+        "height": 51.4800027012825,
+        "center_x": 39.00000173598528,
+        "center_y": 33.027779310941696
+      },
+      "stl_blender_dimensions_mm": {
+        "x": 34.32000055909157,
+        "y": 51.4800027012825,
+        "z": 0.0
+      },
+      "texture_position_mm": {
+        "x": 39.00000173598528,
+        "y": 33.027779310941696
+      },
+      "texture_dims_mm": {
+        "width": 34.32000242173672,
+        "height": 51.4800027012825
+      }
+    },
+    {
+      "index": 2,
+      "stl_world_aabb_mm": {
+        "width": 34.32000242173672,
+        "height": 51.4800027012825,
+        "center_x": 39.00000173598528,
+        "center_y": -12.749999761581421
+      },
+      "stl_blender_dimensions_mm": {
+        "x": 34.32000055909157,
+        "y": 51.4800027012825,
+        "z": 0.0
+      },
+      "texture_position_mm": {
+        "x": 39.00000173598528,
+        "y": -12.749999761581421
+      },
+      "texture_dims_mm": {
+        "width": 34.32000242173672,
+        "height": 51.4800027012825
+      }
+    },
+    {
+      "index": 3,
+      "stl_world_aabb_mm": {
+        "width": 34.32000242173672,
+        "height": 51.4800027012825,
+        "center_x": 39.00000173598528,
+        "center_y": -58.52777883410454
+      },
+      "stl_blender_dimensions_mm": {
+        "x": 34.32000055909157,
+        "y": 51.4800027012825,
+        "z": 0.0
+      },
+      "texture_position_mm": {
+        "x": 39.00000173598528,
+        "y": -58.52777883410454
+      },
+      "texture_dims_mm": {
+        "width": 34.32000242173672,
+        "height": 51.4800027012825
+      }
+    }
+  ]
+}

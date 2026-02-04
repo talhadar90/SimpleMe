@@ -103,117 +103,120 @@ class AIImageGenerator:
             }
 
     def _build_character_prompt(self) -> str:
-        """Build character prompt with technical specifications
+        """Build character prompt for hyperrealistic UV-print quality figure.
 
-        UPDATED: Added stylized proportions for better 3D face quality.
-        The head is now requested at 25-30% of body height instead of realistic ~14%.
-        This gives the 3D converter more face pixels to work with.
+        Optimized for:
+        - Exact facial likeness preservation
+        - Hyperrealistic skin textures and details
+        - Vibrant, accurate colors for UV printing
+        - Clean edges for 2.5D lithophane conversion
         """
-        return f"""Transform this person into a highly detailed 3D action figure character:
+        return """Create a HYPERREALISTIC full-body portrait of this exact person for UV printing:
 
-CHARACTER REQUIREMENTS:
-- Realistic facial features matching the person in the image (according to gender)
-- FULL BODY from head to feet - complete figure including legs, torso, arms, and head
-- Professional action figure proportions
-- Show entire body standing - never cut off at waist, knees, or chest
-- High-quality textures and materials
+CAMERA ANGLE (CRITICAL - FLAT LAY VIEW):
+- TOP-DOWN / FLAT LAY perspective - as if the figure is lying flat and photographed from directly above
+- NO perspective distortion - orthographic style view
+- Figure should appear flat like a paper doll or action figure in packaging
+- This prevents weird 3D angles and ensures clean 2.5D conversion
 
-CLOTHING (CRITICAL):
-- NO TEXT on any clothing or garments - remove all logos, brand names, letters, numbers
-- NO logos, symbols, or graphic prints on shirts, pants, shoes, or accessories
-- Plain solid colors or simple patterns only (stripes, checks OK)
-- Clean, unbranded clothing aesthetic
-- If original clothing has text/logos, replace with plain solid color version
+FACE & SKIN (CRITICAL - HIGHEST PRIORITY):
+- EXACT facial likeness - preserve every facial feature precisely as in the input photo
+- Hyperrealistic skin texture with visible pores, subtle wrinkles, natural skin imperfections
+- Accurate skin tone matching the original photo exactly
+- Natural skin subsurface scattering and realistic flesh tones
+- Detailed eyes with realistic iris patterns, reflections, and natural eye moisture
+- Natural hair texture with individual strand details, accurate hair color
+- Realistic lips with natural color and subtle texture
+- Face forward, neutral expression
 
 POSE - EXTREMELY IMPORTANT - MUST FOLLOW EXACTLY:
-- A-pose ONLY: Arms STRAIGHT down, touching the sides of the thighs
+- A-POSE ONLY: Arms STRAIGHT down, touching the sides of the thighs
 - Arms must be FULLY EXTENDED downward, NOT bent at elbows
 - Hands open with fingers pointing DOWN toward the ground, palms facing inward toward thighs
 - NO fists, NO gloves visible on hands, NO bent arms
 - Arms should form a straight vertical line from shoulder to fingertips
 - Standing like a wooden mannequin or store display dummy
 - Legs straight, feet together or slightly apart
-- Face forward, neutral expression
 - This is a NEUTRAL REFERENCE POSE for 3D scanning - absolutely NO action poses
 
+FULL BODY REQUIREMENTS:
+- Complete full-body view from head to feet - nothing cropped
+- Natural human proportions (not stylized or cartoonish)
+- Feet flat on ground, legs straight
+
+CLOTHING & FABRIC:
+- Hyperrealistic fabric textures - visible weave, stitching, material properties
+- Accurate colors matching any visible clothing from original photo
+- Natural fabric folds and draping
+- Realistic material properties (cotton, denim, leather, etc.)
+- Clean, unbranded clothing - no text or logos
+
+LIGHTING & COLOR (CRITICAL FOR UV PRINTING):
+- Bright, even front lighting - no harsh shadows
+- Vibrant, saturated colors optimized for print reproduction
+- High color accuracy - colors must print true to screen
+- Soft diffused lighting that reveals all details
+- No dark shadows that would print as black areas
+- Clean highlight areas without blown-out whites
+
 COMPOSITION:
-- Centered composition with full height of character visible
-- Complete figure from top of head to bottom of feet with no body parts cropped
-- Flat, even lighting with minimal shadows for 3D conversion
-- Action figure aesthetic with clean, defined details
-- Premium collectible quality
-- Portrait orientation layout showing the complete full-length figure
-- Pure transparent background
+- Centered in frame with small margin on all sides
+- Full body visible with no cropping
+- Pure transparent background (PNG with alpha)
+- Sharp, clean edges around the figure
+- High resolution details throughout
 
-CRITICAL: Arms STRAIGHT DOWN touching thighs. Hands OPEN, fingers pointing to floor. NO bent elbows. NO fists. NO text or logos on clothing. Like an action figure in original packaging - stiff neutral pose."""
+OUTPUT QUALITY:
+- Photorealistic quality - should look like a professional photograph
+- Maximum detail and sharpness
+- Print-ready color profile
+- Clean silhouette for easy background separation
 
-    def _stylize_currency_if_needed(self, accessory: str) -> tuple[str, bool]:
-        """
-        Detect currency-related terms and stylize to avoid 3D API content policy issues.
-
-        Returns:
-            tuple: (modified_accessory_description, was_stylized)
-        """
-        # Currency-related keywords to detect
-        currency_keywords = [
-            'dollar', 'dollars', 'bill', 'bills', 'money', 'cash', 'currency',
-            'hundred', '$100', '$50', '$20', '$10', '$1', 'banknote', 'banknotes',
-            'euro', 'euros', 'pound', 'pounds', 'yen', 'yuan', 'peso', 'rupee',
-            'franc', 'krona', 'won', 'real', 'lira', 'dinar', 'dirham'
-        ]
-
-        accessory_lower = accessory.lower()
-        is_currency = any(keyword in accessory_lower for keyword in currency_keywords)
-
-        if is_currency:
-            # Stylize the currency to be cartoon/game-style
-            stylized = f"stylized cartoon {accessory}, game asset style, illustrated NOT realistic currency, playful design with $ symbols"
-            print(f"💵 Detected currency in accessory, stylizing: '{accessory}' -> cartoon style")
-            return stylized, True
-
-        return accessory, False
+CRITICAL: This is for UV PRINTING - colors must be vibrant and accurate. Face must be IDENTICAL to input photo. Hyperrealistic quality, not stylized or cartoon."""
 
     def _build_accessory_prompt(self, accessory: str) -> str:
-        """Build accessory prompt with technical specifications for 3D conversion"""
-        # Check if this is currency and stylize if needed
-        stylized_accessory, was_stylized = self._stylize_currency_if_needed(accessory)
+        """Build hyperrealistic accessory prompt optimized for UV printing and 3D conversion.
 
-        # Add extra stylization instructions for currency
-        currency_note = ""
-        if was_stylized:
-            currency_note = """
-CURRENCY STYLIZATION (CRITICAL):
-- Must be CARTOON/GAME STYLE - NOT realistic currency
-- Use bright, playful colors
-- Add visible $ or currency symbols
-- Make it look like video game money or Monopoly money
-- NO realistic portraits, serial numbers, or government seals
-"""
-
-        return f"""Create a highly detailed 3D rendered {stylized_accessory}:
+        Optimized for:
+        - Photorealistic materials and textures
+        - Vibrant, accurate colors for UV printing
+        - Clean edges for 2.5D lithophane conversion
+        - Proper lighting for depth map generation
+        """
+        return f"""Create a HYPERREALISTIC {accessory} for UV printing:
 
 ACCESSORY REQUIREMENTS:
-- ONLY ONE single {stylized_accessory} in the image - no duplicates, no multiple items
-- Premium collectible quality design
-- Realistic textures and materials with visible surface details
-- Perfect for action figure scale/use
-- Modern detailed design with high-quality finish
-{currency_note}
+- ONLY ONE single {accessory} in the image - no duplicates, no multiple items
+- PHOTOREALISTIC quality - should look like a professional product photograph
+- Hyperrealistic materials with visible surface details, textures, and imperfections
+- Real-world accurate proportions and scale
+- Premium quality finish with realistic material properties
 
-CAMERA ANGLE (CRITICAL FOR 3D CONVERSION):
-- FLAT LAY / TOP-DOWN view - camera looking straight down at the object
-- Object lying flat on surface, photographed from directly above
-- Shows the full shape and outline of the object clearly
-- NO perspective distortion - orthographic style view
-- Front face of the object should be visible and facing up
+MATERIAL & TEXTURE (CRITICAL FOR UV PRINTING):
+- Hyperrealistic surface textures - visible grain, scratches, wear patterns where appropriate
+- Accurate material properties (metal reflections, fabric weave, leather grain, etc.)
+- Natural material imperfections that add realism
+- True-to-life colors that will print accurately
+- Realistic subsurface scattering for translucent materials
+- Visible fine details like stitching, seams, engraving, embossing
 
-LIGHTING (CRITICAL):
-- FLAT, even lighting with NO shadows
-- NO cast shadows on or around the object
-- NO ambient occlusion shadows
+CAMERA ANGLE (CRITICAL FOR 3D CONVERSION - MUST FOLLOW EXACTLY):
+- FLAT LAY / TOP-DOWN view - camera looking STRAIGHT DOWN at the object from directly above
+- Object lying completely FLAT on surface, photographed from 90 degrees above
+- NO perspective, NO 3D angles, NO tilting - pure orthographic top-down view
+- Like photographing an object placed flat on a table, camera pointing straight down
+- Shows the full shape and outline of the object clearly as a 2D silhouette
+- Front face of the object should be visible and facing up toward camera
+- This prevents weird 3D angles and ensures clean 2.5D lithophane conversion
+
+LIGHTING (CRITICAL FOR UV PRINTING):
+- Bright, even front lighting - no harsh shadows
 - Soft, diffused light from all directions
-- No harsh highlights or dark areas
-- Pure transparent background with no gradients
+- NO cast shadows on or around the object
+- NO dark ambient occlusion shadows
+- Colors must be vibrant and saturated for print reproduction
+- No blown-out highlights or crushed blacks
+- Pure transparent background (PNG with alpha)
 
 COMPOSITION (CRITICAL):
 - ONE accessory only - single item, not a set or collection
@@ -221,12 +224,17 @@ COMPOSITION (CRITICAL):
 - Complete item visible with no cropping at all
 - Isolated item on pure transparent background
 - No other objects, props, or accessories in the scene
-- Clean, defined edges and silhouette
-- Vibrant colors with premium finish
-- High resolution and sharp details
+- Sharp, clean edges around the object
 - Object should fill about 70% of the frame
+- High resolution details throughout
 
-CRITICAL: Generate exactly ONE {stylized_accessory} - single item only, flat lay angle from above, NO SHADOWS, centered, complete, no duplicates."""
+OUTPUT QUALITY:
+- Photorealistic quality - should look like a real photograph
+- Maximum detail and sharpness
+- Print-ready vibrant colors
+- Clean silhouette for easy background separation
+
+CRITICAL: Generate exactly ONE hyperrealistic {accessory} - single item only, flat lay angle from above, NO SHADOWS, centered, complete, photorealistic quality for UV printing."""
 
     async def _generate_from_user_image(self, job_id: str, user_image_path: str, prompt: str, image_type: str,
                                        output_dir: str) -> Dict:

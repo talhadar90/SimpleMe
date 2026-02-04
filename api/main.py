@@ -20,8 +20,14 @@ from config.settings import settings
 from fastapi.staticfiles import StaticFiles
 from services.background_remover import ComfyUIBackgroundRemover
 
-# Import shopify 
+# Import shopify
 from api.shopify_handler import ShopifyHandler, shopify_orders
+
+# Import Supabase client
+from services.supabase_client import get_supabase_client
+
+# Import Order Processor for async queue
+from services.order_processor import get_order_processor
 
 # ADD CORS middleware
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,6 +52,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Middleware to prevent caching of storage files
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/storage"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # Mount static files to serve generated images
 app.mount("/storage", StaticFiles(directory="storage"), name="storage")
@@ -249,6 +265,11 @@ async def restore_jobs_from_storage():
 async def startup_event():
     """Run startup checks"""
     logger.info("🔧 Running startup health checks...")
+
+    # Initialize order processor with services
+    order_processor = get_order_processor()
+    order_processor.set_services(ai_generator, sculptok_client)
+    logger.info("✅ Order processor initialized")
 
     # Restore jobs from storage
     await restore_jobs_from_storage()
@@ -1463,9 +1484,590 @@ async def test_sculptok_page():
 
 
 # ================================
-# Starter Pack Pipeline (NEW)
+# Starter Pack Pipeline (NEW - ASYNC)
 # ================================
 
+@app.post("/starter-pack/submit")
+async def submit_starter_pack_order(
+    # User photo for figure
+    user_image: UploadFile = File(...),
+    # Accessory descriptions
+    accessory_1: str = Form(...),
+    accessory_2: str = Form(...),
+    accessory_3: str = Form(...),
+    # Title and subtitle
+    title: str = Form(...),
+    subtitle: str = Form(default=""),
+    # Text color
+    text_color: str = Form(default="red"),
+    # Background options
+    background_type: str = Form(default="transparent"),
+    background_color: str = Form(default="white"),
+    background_description: str = Form(default=""),
+    background_image: Optional[UploadFile] = File(default=None),
+    # Test/Shopify flags
+    is_test: str = Form(default="true"),
+    shopify_order_id: str = Form(default=""),
+    order_number: str = Form(default=""),
+    customer_name: str = Form(default=""),
+    customer_email: str = Form(default=""),
+):
+    """
+    Submit a Starter Pack order to the async processing queue.
+    Returns immediately with job_id - check status via /starter-pack/status/{job_id}
+    """
+    logger.info(f"📥 [STARTER_PACK] New order received")
+    logger.info(f"   Title: {title}, Accessories: {accessory_1}, {accessory_2}, {accessory_3}")
+
+    # Create job directory
+    job_id = str(uuid.uuid4())[:8]
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+    os.makedirs(job_dir, exist_ok=True)
+
+    # Save user image
+    user_image_path = os.path.join(job_dir, f"user_image_{user_image.filename}")
+    content = await user_image.read()
+    async with aiofiles.open(user_image_path, 'wb') as f:
+        await f.write(content)
+
+    # Save background image if provided
+    background_input_path = None
+    if background_image:
+        background_input_path = os.path.join(job_dir, f"bg_input_{background_image.filename}")
+        bg_content = await background_image.read()
+        async with aiofiles.open(background_input_path, 'wb') as f:
+            await f.write(bg_content)
+
+    # Convert is_test string to bool
+    is_test_bool = is_test.lower() == "true"
+
+    # Prepare order data
+    accessories = [accessory_1, accessory_2, accessory_3]
+    order_data = {
+        "job_id": job_id,
+        "job_dir": job_dir,
+        "user_image_path": user_image_path,
+        "accessories": accessories,
+        "title": title,
+        "subtitle": subtitle,
+        "text_color": text_color,
+        "background_type": background_type,
+        "background_color": background_color,
+        "background_description": background_description,
+        "background_input_path": background_input_path,
+        "is_test": is_test_bool,
+        "shopify_order_id": shopify_order_id or None,
+        "order_number": order_number or (f"TEST-{job_id}" if is_test_bool else None),
+        "customer_name": customer_name or ("Test User" if is_test_bool else None),
+        "customer_email": customer_email or None,
+    }
+
+    # Save order to Supabase
+    supabase = get_supabase_client()
+    if supabase.is_connected():
+        try:
+            db_order = {
+                "job_id": job_id,
+                "shopify_order_id": order_data["shopify_order_id"],
+                "order_number": order_data["order_number"],
+                "customer_name": order_data["customer_name"],
+                "customer_email": order_data["customer_email"],
+                "status": "pending",
+                "input_image_path": user_image_path,
+                "accessories": accessories,
+                "title": title,
+                "subtitle": subtitle,
+                "text_color": text_color,
+                "background_type": background_type,
+                "background_color": background_color,
+                "background_image_path": background_input_path,
+                "is_test": is_test_bool,
+            }
+            await supabase.create_order(db_order)
+            logger.info(f"   ✅ Order saved to database: {job_id}")
+        except Exception as db_error:
+            logger.warning(f"   ⚠️ Could not save order to database: {db_error}")
+
+    # Add to processing queue
+    order_processor = get_order_processor()
+    await order_processor.add_order(order_data)
+
+    # Get queue status
+    queue_status = order_processor.get_queue_status()
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "message": "Order queued for processing",
+        "queue_position": queue_status["queue_length"],
+        "status_url": f"/starter-pack/status/{job_id}"
+    }
+
+
+@app.get("/starter-pack/status/{job_id}")
+async def get_starter_pack_status(job_id: str):
+    """Get the status of a starter pack order"""
+    supabase = get_supabase_client()
+
+    if supabase.is_connected():
+        result = await supabase.get_order(job_id)
+        if result.get("success"):
+            order = result["data"]
+            return {
+                "job_id": job_id,
+                "status": order.get("status"),
+                "outputs": {
+                    "stl_url": order.get("stl_url"),
+                    "texture_url": order.get("texture_url"),
+                    "blend_url": order.get("blend_url"),
+                },
+                "error": order.get("error_message"),
+                "created_at": order.get("created_at"),
+                "updated_at": order.get("updated_at"),
+            }
+
+    # Fallback: check if output files exist
+    output_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id, "final_output")
+    stl_path = os.path.join(output_dir, f"{job_id}.stl")
+
+    if os.path.exists(stl_path):
+        return {
+            "job_id": job_id,
+            "status": "completed",
+            "outputs": {
+                "stl_url": f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.stl",
+                "texture_url": f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_texture.png",
+                "blend_url": f"/storage/test_starter_pack/{job_id}/final_output/{job_id}.blend",
+            }
+        }
+
+    # Check if job directory exists (pending/processing)
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+    if os.path.exists(job_dir):
+        return {"job_id": job_id, "status": "processing"}
+
+    return {"job_id": job_id, "status": "not_found"}
+
+
+@app.get("/starter-pack/queue")
+async def get_starter_pack_queue():
+    """Get the current processing queue status"""
+    order_processor = get_order_processor()
+    return order_processor.get_queue_status()
+
+
+@app.delete("/starter-pack/order/{job_id}")
+async def delete_starter_pack_order(job_id: str):
+    """Delete a starter pack order from database and optionally files"""
+    import shutil
+
+    supabase = get_supabase_client()
+    deleted_db = False
+    deleted_files = False
+
+    # Delete from database
+    if supabase.is_connected():
+        result = await supabase.delete_order(job_id)
+        deleted_db = result.get("success", False)
+
+    # Delete files
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+    if os.path.exists(job_dir):
+        try:
+            shutil.rmtree(job_dir)
+            deleted_files = True
+        except Exception as e:
+            logger.error(f"Failed to delete job directory: {e}")
+
+    return {
+        "success": deleted_db or deleted_files,
+        "job_id": job_id,
+        "deleted_from_db": deleted_db,
+        "deleted_files": deleted_files
+    }
+
+
+@app.post("/starter-pack/order/{job_id}/retry")
+async def retry_starter_pack_order(job_id: str, from_step: int = 5):
+    """
+    Retry a starter pack order from a specific step.
+
+    Steps:
+    1 - Generate images (GPT-image-1.5)
+    2 - Background image generation
+    3 - Background removal (Sculptok HD)
+    4 - Depth map generation
+    5 - Blender processing
+
+    Args:
+        job_id: The job ID to retry
+        from_step: Step number to resume from (1-5, default: 5 for just Blender)
+    """
+    from services.order_processor import get_order_processor
+
+    # Validate step number
+    if from_step < 1 or from_step > 5:
+        return {"success": False, "error": "from_step must be between 1 and 5"}
+
+    # Get order from database
+    supabase = get_supabase_client()
+    order_result = await supabase.get_order(job_id)
+
+    if not order_result.get("success"):
+        return {"success": False, "error": f"Order {job_id} not found"}
+
+    order_data = order_result.get("data", {})
+
+    # Set up job directory
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+    if not os.path.exists(job_dir):
+        return {"success": False, "error": f"Job directory not found: {job_dir}"}
+
+    # Prepare order data for retry
+    retry_data = {
+        "job_id": job_id,
+        "job_dir": job_dir,
+        "user_image_path": order_data.get("input_image_path"),
+        "accessories": order_data.get("accessories", []),
+        "title": order_data.get("title", ""),
+        "subtitle": order_data.get("subtitle", ""),
+        "text_color": order_data.get("text_color", "red"),
+        "background_type": order_data.get("background_type", "transparent"),
+        "background_color": order_data.get("background_color", "white"),
+        "background_description": order_data.get("background_description", ""),
+        "is_test": order_data.get("is_test", True)
+    }
+
+    # Add to queue with retry settings
+    processor = get_order_processor()
+    await processor.retry_order(job_id, from_step, retry_data)
+
+    step_names = {
+        1: "Image Generation",
+        2: "Background Image",
+        3: "Background Removal",
+        4: "Depth Map Generation",
+        5: "Blender Processing"
+    }
+
+    return {
+        "success": True,
+        "job_id": job_id,
+        "from_step": from_step,
+        "step_name": step_names.get(from_step, "Unknown"),
+        "message": f"Order {job_id} queued for retry from step {from_step} ({step_names.get(from_step)})"
+    }
+
+
+@app.post("/starter-pack/order/{job_id}/regenerate-texture")
+async def regenerate_texture_only(job_id: str):
+    """
+    Regenerate only the texture for an existing order.
+    Uses the existing blend file and re-runs texture generation without touching the STL.
+
+    Args:
+        job_id: The job ID to regenerate texture for
+    """
+    import subprocess
+
+    # Get order from database
+    supabase = get_supabase_client()
+    order_result = await supabase.get_order(job_id)
+
+    if not order_result.get("success"):
+        return {"success": False, "error": f"Order {job_id} not found"}
+
+    order_data = order_result.get("data", {})
+
+    # Set up paths
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+    final_output_dir = os.path.join(job_dir, "final_output")
+    blend_file = os.path.join(final_output_dir, f"{job_id}.blend")
+
+    if not os.path.exists(blend_file):
+        return {"success": False, "error": f"Blend file not found: {blend_file}"}
+
+    # Find image files - PRIORITY: generated folder first (original quality)
+    import glob
+    generated_dir = os.path.join(settings.STORAGE_PATH, "generated", job_id)
+
+    # Figure: prefer generated/base_character_*.png
+    figure_img = None
+    base_chars = glob.glob(os.path.join(generated_dir, "base_character_*.png"))
+    if base_chars:
+        figure_img = base_chars[0]
+    else:
+        # Fallback to nobg versions
+        for path in [
+            os.path.join(job_dir, "figure_nobg.png"),
+            os.path.join(job_dir, "nobg", "figure_nobg.png"),
+        ]:
+            if os.path.exists(path):
+                figure_img = path
+                break
+
+    if not figure_img:
+        return {"success": False, "error": f"Figure image not found in {generated_dir} or {job_dir}"}
+
+    logger.info(f"   Using figure image: {figure_img}")
+
+    # Accessories: prefer generated/accessory_{i}_*.png
+    acc_imgs = []
+    for i in range(1, 4):
+        acc_path = None
+        acc_files = glob.glob(os.path.join(generated_dir, f"accessory_{i}_*.png"))
+        if acc_files:
+            acc_path = acc_files[0]
+        else:
+            # Fallback to nobg versions
+            for path in [
+                os.path.join(job_dir, f"accessory_{i}_nobg.png"),
+                os.path.join(job_dir, "nobg", f"accessory_{i}_nobg.png"),
+            ]:
+                if os.path.exists(path):
+                    acc_path = path
+                    break
+
+        if acc_path:
+            acc_imgs.append(acc_path)
+            logger.info(f"   Using accessory {i} image: {acc_path}")
+
+    # Find background image if applicable
+    background_type = order_data.get("background_type", "transparent")
+    background_color = order_data.get("background_color", "white")
+    background_image = ""
+    if background_type == "image":
+        for bg_path in [
+            os.path.join(job_dir, "background_generated.png"),
+            os.path.join(job_dir, "background", "background.png"),
+            os.path.join(job_dir, "background.png"),
+        ]:
+            if os.path.exists(bg_path):
+                background_image = bg_path
+                break
+
+    # Build Blender command for texture-only mode
+    blender_script = "/workspace/SimpleMe/services/blender_starter_pack.py"
+
+    blender_cmd = [
+        "blender",
+        "--background",
+        "--python", blender_script,
+        "--",
+        "--texture-only",
+        "--blend-file", blend_file,
+        "--figure_img", figure_img,
+        "--figure_depth", "",  # Not needed for texture-only
+        "--output_dir", final_output_dir,
+        "--job_id", job_id,
+        "--background_type", background_type,
+        "--background_color", background_color,
+    ]
+
+    # Add accessory images
+    for i, acc_img in enumerate(acc_imgs):
+        blender_cmd.extend([f"--acc{i+1}_img", acc_img])
+
+    # Add background image if applicable
+    if background_image:
+        blender_cmd.extend(["--background_image", background_image])
+
+    logger.info(f"🔄 Regenerating texture for {job_id}")
+    logger.debug(f"   Command: {' '.join(blender_cmd)}")
+
+    try:
+        result = subprocess.run(
+            blender_cmd,
+            capture_output=True,
+            text=True,
+            timeout=120  # 2 minute timeout for texture only
+        )
+
+        if result.returncode == 0:
+            logger.info(f"✅ Texture regenerated for {job_id}")
+            texture_path = os.path.join(final_output_dir, f"{job_id}_texture.png")
+
+            return {
+                "success": True,
+                "job_id": job_id,
+                "texture_url": f"/storage/test_starter_pack/{job_id}/final_output/{job_id}_texture.png",
+                "message": f"Texture regenerated successfully",
+                "stdout": result.stdout[-3000:] if result.stdout else ""
+            }
+        else:
+            error_msg = result.stderr[-1000:] if result.stderr else "Unknown error"
+            logger.error(f"❌ Texture regeneration failed: {error_msg}")
+            return {
+                "success": False,
+                "error": f"Blender failed: {error_msg}",
+                "stdout": result.stdout[-3000:] if result.stdout else ""
+            }
+
+    except subprocess.TimeoutExpired:
+        return {"success": False, "error": "Texture regeneration timed out"}
+    except Exception as e:
+        logger.error(f"❌ Texture regeneration exception: {e}")
+        return {"success": False, "error": str(e)}
+
+
+@app.post("/starter-pack/order/{job_id}/reset")
+async def reset_starter_pack_order(job_id: str, new_status: str = "failed"):
+    """
+    Reset a stuck order's status without reprocessing.
+    Use this when an order is stuck in 'processing' state after a server restart.
+
+    Args:
+        job_id: The job ID to reset
+        new_status: Status to set (default: 'failed', can also be 'queued' or 'cancelled')
+    """
+    from services.order_processor import get_order_processor
+
+    valid_statuses = ["failed", "queued", "cancelled", "pending"]
+    if new_status not in valid_statuses:
+        return {"success": False, "error": f"new_status must be one of: {valid_statuses}"}
+
+    # Reset the processor state if this is the current job
+    processor = get_order_processor()
+    if processor.current_job == job_id:
+        processor.current_job = None
+        processor.processing = False
+        logger.info(f"🔄 Reset processor state for job {job_id}")
+
+    # Update database status
+    supabase = get_supabase_client()
+    if supabase.is_connected():
+        try:
+            await supabase.update_order_status(
+                job_id,
+                new_status,
+                "Order reset manually after server restart" if new_status == "failed" else None
+            )
+            logger.info(f"✅ Order {job_id} status reset to '{new_status}'")
+            return {
+                "success": True,
+                "job_id": job_id,
+                "new_status": new_status,
+                "message": f"Order {job_id} status reset to '{new_status}'"
+            }
+        except Exception as e:
+            logger.error(f"❌ Failed to reset order {job_id}: {e}")
+            return {"success": False, "error": str(e)}
+    else:
+        return {"success": False, "error": "Database not connected"}
+
+
+@app.post("/starter-pack/processor/reset")
+async def reset_order_processor():
+    """
+    Reset the order processor state.
+    Use this when the processor is stuck and not processing any orders.
+    """
+    from services.order_processor import get_order_processor
+
+    processor = get_order_processor()
+
+    old_state = {
+        "processing": processor.processing,
+        "current_job": processor.current_job,
+        "queue_length": len(processor.queue)
+    }
+
+    # Reset processor state
+    processor.processing = False
+    processor.current_job = None
+
+    logger.info(f"🔄 Order processor state reset. Old state: {old_state}")
+
+    return {
+        "success": True,
+        "message": "Order processor state reset",
+        "old_state": old_state,
+        "new_state": {
+            "processing": processor.processing,
+            "current_job": processor.current_job,
+            "queue_length": len(processor.queue)
+        }
+    }
+
+
+@app.get("/starter-pack/order/{job_id}/files")
+async def get_starter_pack_files(job_id: str):
+    """Get all files for a starter pack order"""
+    job_dir = os.path.join(settings.STORAGE_PATH, "test_starter_pack", job_id)
+
+    files = {
+        "input_image": None,
+        "background_image": None,
+        "generated_images": [],
+        "depth_maps": [],
+        "nobg_images": [],
+        "outputs": {
+            "stl": None,
+            "texture": None,
+            "blend": None
+        }
+    }
+
+    if not os.path.exists(job_dir):
+        return {"success": False, "error": "Job directory not found", "files": files}
+
+    base_url = f"/storage/test_starter_pack/{job_id}"
+
+    # Find input image
+    for f in os.listdir(job_dir):
+        if f.startswith("user_image_"):
+            files["input_image"] = f"{base_url}/{f}"
+            break
+
+    # Find background image
+    for f in os.listdir(job_dir):
+        if f.startswith("background_") and f.endswith(".png"):
+            files["background_image"] = f"{base_url}/{f}"
+            break
+
+    # Find generated images (from GPT) - exclude nobg versions
+    for f in os.listdir(job_dir):
+        if f.endswith(".png") and not f.startswith("user_image_") and "depth" not in f.lower() and "_nobg" not in f:
+            if "base_character" in f or "accessory" in f:
+                files["generated_images"].append({
+                    "name": f,
+                    "url": f"{base_url}/{f}",
+                    "type": "character" if "base_character" in f else "accessory"
+                })
+
+    # Find nobg (background-removed) images
+    for f in os.listdir(job_dir):
+        if "_nobg.png" in f:
+            img_type = "figure" if "figure" in f else "accessory"
+            files["nobg_images"].append({
+                "name": f,
+                "url": f"{base_url}/{f}",
+                "type": img_type
+            })
+
+    # Find depth maps
+    for f in os.listdir(job_dir):
+        if "depth" in f.lower() and f.endswith(".png"):
+            files["depth_maps"].append({
+                "name": f,
+                "url": f"{base_url}/{f}"
+            })
+
+    # Find final outputs
+    output_dir = os.path.join(job_dir, "final_output")
+    if os.path.exists(output_dir):
+        for f in os.listdir(output_dir):
+            if f.endswith(".stl"):
+                files["outputs"]["stl"] = f"{base_url}/final_output/{f}"
+            elif f.endswith("_texture.png"):
+                files["outputs"]["texture"] = f"{base_url}/final_output/{f}"
+            elif f.endswith(".blend"):
+                files["outputs"]["blend"] = f"{base_url}/final_output/{f}"
+
+    return {"success": True, "job_id": job_id, "files": files}
+
+
+# Legacy sync endpoint (redirects to async)
 @app.post("/test/starter-pack/full-pipeline")
 async def test_starter_pack_full_pipeline(
     # User photo for figure
@@ -1484,6 +2086,8 @@ async def test_starter_pack_full_pipeline(
     background_color: str = Form(default="white"),  # For solid backgrounds
     background_description: str = Form(default=""),  # For GPT-generated backgrounds
     background_image: Optional[UploadFile] = File(default=None),  # For user-uploaded backgrounds
+    # Test order flag
+    is_test: str = Form(default="true"),  # Mark as test order (string "true"/"false")
 ):
     """
     Full Starter Pack Pipeline:
@@ -1528,6 +2132,34 @@ async def test_starter_pack_full_pipeline(
         "outputs": {},
         "errors": []
     }
+
+    # Convert is_test string to bool
+    is_test_bool = is_test.lower() == "true"
+
+    # Save order to Supabase
+    accessories = [accessory_1, accessory_2, accessory_3]
+    supabase = get_supabase_client()
+    if supabase.is_connected():
+        try:
+            order_data = {
+                "job_id": job_id,
+                "order_number": f"TEST-{job_id}" if is_test_bool else None,
+                "customer_name": "Test User" if is_test_bool else None,
+                "customer_email": None,
+                "status": "processing",
+                "input_image_path": os.path.join(job_dir, f"user_image_{user_image.filename}"),
+                "accessories": accessories,
+                "title": title,
+                "subtitle": subtitle,
+                "text_color": text_color,
+                "background_type": background_type,
+                "background_color": background_color,
+                "is_test": is_test_bool
+            }
+            await supabase.create_order(order_data)
+            logger.info(f"   ✅ Order saved to database: {job_id}")
+        except Exception as db_error:
+            logger.warning(f"   ⚠️ Could not save order to database: {db_error}")
 
     try:
         # ============================================================
@@ -1878,6 +2510,26 @@ Requirements:
         if results["errors"]:
             logger.warning(f"   Errors: {results['errors']}")
 
+        # Update order in Supabase
+        if supabase.is_connected():
+            try:
+                if results["success"]:
+                    await supabase.update_order_outputs(job_id, {
+                        "stl_path": results.get("outputs", {}).get("stl"),
+                        "texture_path": results.get("outputs", {}).get("texture"),
+                        "blend_path": results.get("outputs", {}).get("blend"),
+                        "stl_url": results.get("outputs", {}).get("stl_url"),
+                        "texture_url": results.get("outputs", {}).get("texture_url"),
+                        "blend_url": results.get("outputs", {}).get("blend_url")
+                    })
+                    logger.info(f"   ✅ Order updated in database: completed")
+                else:
+                    error_message = "; ".join(results.get("errors", ["Unknown error"]))
+                    await supabase.update_order_status(job_id, "failed", error_message)
+                    logger.info(f"   ✅ Order updated in database: failed")
+            except Exception as db_error:
+                logger.warning(f"   ⚠️ Could not update order in database: {db_error}")
+
         return results
 
     except Exception as e:
@@ -1885,6 +2537,14 @@ Requirements:
         logger.error(traceback.format_exc())
         results["errors"].append(str(e))
         results["success"] = False
+
+        # Update order status to failed in Supabase
+        if supabase.is_connected():
+            try:
+                await supabase.update_order_status(job_id, "failed", str(e))
+            except Exception as db_error:
+                logger.warning(f"   ⚠️ Could not update order in database: {db_error}")
+
         return results
 
 

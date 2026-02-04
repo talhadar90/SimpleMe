@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sculptok Pipeline Test - GPT + STL Generation</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .form-container {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #00d4ff;
+            font-size: 1.8rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #fff;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #00d4ff;
+        }
+
+        .file-input-container {
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .file-input-container:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .file-input-container.has-file {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+            border-style: solid;
+        }
+
+        .file-text {
+            font-size: 16px;
+            color: #aaa;
+        }
+
+        .file-input-container.has-file .file-text {
+            color: #00ff88;
+        }
+
+        .accessories-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .accessories-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-hint {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        .params-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #000;
+            border: none;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .submit-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .progress-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .progress-container.visible {
+            display: block;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .progress-title {
+            font-size: 1.1rem;
+            color: #00d4ff;
+        }
+
+        .progress-status {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .step {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .step-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .step-icon.pending {
+            background: rgba(255, 255, 255, 0.1);
+            color: #666;
+        }
+
+        .step-icon.running {
+            background: rgba(255, 170, 0, 0.2);
+            color: #ffaa00;
+            animation: pulse 1.5s infinite;
+        }
+
+        .step-icon.complete {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .step-icon.error {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-name {
+            font-weight: 600;
+            color: #fff;
+            font-size: 0.95rem;
+        }
+
+        .step-detail {
+            font-size: 0.8rem;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .results-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .results-container.visible {
+            display: block;
+        }
+
+        .results-header {
+            font-size: 1.2rem;
+            color: #00ff88;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .result-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .result-card-title {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .result-files {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .result-file {
+            display: inline-block;
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .result-file:hover {
+            background: rgba(0, 212, 255, 0.3);
+        }
+
+        .result-file.stl {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+
+        .result-file.stl:hover {
+            background: rgba(0, 255, 136, 0.3);
+        }
+
+        .log-container {
+            margin-top: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.8rem;
+            display: none;
+        }
+
+        .log-container.visible {
+            display: block;
+        }
+
+        .log-line {
+            margin-bottom: 4px;
+            color: #888;
+        }
+
+        .log-line.info { color: #00d4ff; }
+        .log-line.success { color: #00ff88; }
+        .log-line.error { color: #ff4444; }
+        .log-line.warn { color: #ffaa00; }
+
+        .toggle-log {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #888;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-top: 16px;
+        }
+
+        .toggle-log:hover {
+            border-color: #00d4ff;
+            color: #00d4ff;
+        }
+
+        .image-preview {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .preview-item {
+            text-align: center;
+        }
+
+        .preview-item img {
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .preview-item .label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <h1>🧪 Sculptok Pipeline Test</h1>
+        <p class="subtitle">GPT-image-1.5 → Sculptok → 2.5D STL + Texture</p>
+
+        <form id="pipelineForm">
+            <!-- Photo Upload -->
+            <div class="form-group">
+                <label>Upload Your Photo</label>
+                <div class="file-input-container" onclick="document.getElementById('userImage').click()">
+                    <input type="file" id="userImage" accept="image/*" style="display: none;" required>
+                    <div class="file-text" id="fileText">📸 Click to upload your photo</div>
+                </div>
+                <div class="form-hint">Clear, well-lit photo. JPG, PNG, or WEBP.</div>
+            </div>
+
+            <!-- Accessories -->
+            <div class="form-group">
+                <label>Accessories (3 items)</label>
+                <div class="accessories-grid">
+                    <div>
+                        <input type="text" id="accessory1" placeholder="e.g., sword" value="a medieval sword" required>
+                    </div>
+                    <div>
+                        <input type="text" id="accessory2" placeholder="e.g., shield" value="a knight shield" required>
+                    </div>
+                    <div>
+                        <input type="text" id="accessory3" placeholder="e.g., helmet" value="a viking helmet" required>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STL Parameters -->
+            <div class="form-group">
+                <label>STL Generation Parameters</label>
+                <div class="params-row">
+                    <div>
+                        <input type="number" id="widthMm" value="120" min="40" max="240">
+                        <div class="form-hint">Width (mm)</div>
+                    </div>
+                    <div>
+                        <input type="number" id="minThickness" value="1.6" min="0.4" max="8" step="0.1">
+                        <div class="form-hint">Min Thickness</div>
+                    </div>
+                    <div>
+                        <input type="number" id="maxThickness" value="5.0" min="0.4" max="25" step="0.1">
+                        <div class="form-hint">Max Thickness</div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn">
+                🚀 Run Full Pipeline
+            </button>
+        </form>
+
+        <!-- Progress Tracking -->
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-header">
+                <span class="progress-title">Pipeline Progress</span>
+                <span class="progress-status" id="progressStatus">Starting...</span>
+            </div>
+
+            <div class="step" id="step1">
+                <div class="step-icon pending" id="step1Icon">1</div>
+                <div class="step-content">
+                    <div class="step-name">GPT-image-1.5 Generation</div>
+                    <div class="step-detail" id="step1Detail">Generate character + 3 accessories</div>
+                </div>
+            </div>
+
+            <div class="step" id="step2">
+                <div class="step-icon pending" id="step2Icon">2</div>
+                <div class="step-content">
+                    <div class="step-name">Sculptok Processing</div>
+                    <div class="step-detail" id="step2Detail">Background removal + 2.5D STL for each image</div>
+                </div>
+            </div>
+
+            <div class="step" id="step3">
+                <div class="step-icon pending" id="step3Icon">3</div>
+                <div class="step-content">
+                    <div class="step-name">Download Results</div>
+                    <div class="step-detail" id="step3Detail">STL files + depth images</div>
+                </div>
+            </div>
+
+            <!-- Generated Images Preview -->
+            <div id="imagePreviewContainer" style="display: none; margin-top: 20px;">
+                <label>Generated Images:</label>
+                <div class="image-preview" id="imagePreview"></div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="results-container" id="resultsContainer">
+            <div class="results-header">✅ Pipeline Complete!</div>
+            <div id="resultsContent"></div>
+        </div>
+
+        <!-- Toggle Log Button -->
+        <button class="toggle-log" id="toggleLogBtn" style="display: none;" onclick="toggleLog()">
+            📋 Show Detailed Log
+        </button>
+
+        <!-- Detailed Log -->
+        <div class="log-container" id="logContainer"></div>
+    </div>
+
+    <script>
+        let logs = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            logs.push({ timestamp, message, type });
+
+            const logContainer = document.getElementById('logContainer');
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(line);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function toggleLog() {
+            const logContainer = document.getElementById('logContainer');
+            const btn = document.getElementById('toggleLogBtn');
+            if (logContainer.classList.contains('visible')) {
+                logContainer.classList.remove('visible');
+                btn.textContent = '📋 Show Detailed Log';
+            } else {
+                logContainer.classList.add('visible');
+                btn.textContent = '📋 Hide Detailed Log';
+            }
+        }
+
+        function updateStep(stepNum, status, detail = null) {
+            const icon = document.getElementById(`step${stepNum}Icon`);
+            const detailEl = document.getElementById(`step${stepNum}Detail`);
+
+            icon.className = 'step-icon ' + status;
+
+            if (status === 'running') {
+                icon.innerHTML = '<span style="animation: pulse 1s infinite;">⏳</span>';
+            } else if (status === 'complete') {
+                icon.textContent = '✓';
+            } else if (status === 'error') {
+                icon.textContent = '✗';
+            } else {
+                icon.textContent = stepNum;
+            }
+
+            if (detail) {
+                detailEl.textContent = detail;
+            }
+        }
+
+        function showImagePreviews(images) {
+            const container = document.getElementById('imagePreviewContainer');
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '';
+
+            images.forEach(img => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.innerHTML = `
+                    <img src="${img.url}" alt="${img.type}" onerror="this.style.display='none'">
+                    <div class="label">${img.type}</div>
+                `;
+                preview.appendChild(item);
+            });
+
+            container.style.display = 'block';
+        }
+
+        function showResults(data) {
+            const container = document.getElementById('resultsContainer');
+            const content = document.getElementById('resultsContent');
+            content.innerHTML = '';
+
+            if (data.outputs && Object.keys(data.outputs).length > 0) {
+                for (const [type, outputs] of Object.entries(data.outputs)) {
+                    const card = document.createElement('div');
+                    card.className = 'result-card';
+
+                    let filesHtml = '<div class="result-files">';
+                    if (typeof outputs === 'object') {
+                        for (const [key, path] of Object.entries(outputs)) {
+                            if (typeof path === 'string') {
+                                const isStl = path.endsWith('.stl') || key === 'stl';
+                                const displayPath = path.startsWith('http') ? path : `/storage/test_sculptok/${data.test_id}/sculptok_output/${type}/${path.split('/').pop()}`;
+                                filesHtml += `<a href="${displayPath}" target="_blank" class="result-file ${isStl ? 'stl' : ''}">${key}</a>`;
+                            }
+                        }
+                    }
+                    filesHtml += '</div>';
+
+                    card.innerHTML = `
+                        <div class="result-card-title">${type}</div>
+                        ${filesHtml}
+                    `;
+                    content.appendChild(card);
+                }
+            }
+
+            container.classList.add('visible');
+        }
+
+        // File upload handling
+        document.getElementById('userImage').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const fileText = document.getElementById('fileText');
+            const container = document.querySelector('.file-input-container');
+
+            if (file) {
+                fileText.textContent = `✅ ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                container.classList.add('has-file');
+            } else {
+                fileText.textContent = '📸 Click to upload your photo';
+                container.classList.remove('has-file');
+            }
+        });
+
+        // Form submission
+        document.getElementById('pipelineForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const progressContainer = document.getElementById('progressContainer');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const toggleLogBtn = document.getElementById('toggleLogBtn');
+
+            // Validate
+            const fileInput = document.getElementById('userImage');
+            if (!fileInput.files[0]) {
+                alert('Please upload a photo first');
+                return;
+            }
+
+            // Reset UI
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '⏳ Running Pipeline...';
+            progressContainer.classList.add('visible');
+            resultsContainer.classList.remove('visible');
+            toggleLogBtn.style.display = 'inline-block';
+            document.getElementById('logContainer').innerHTML = '';
+            logs = [];
+
+            // Reset steps
+            for (let i = 1; i <= 3; i++) {
+                updateStep(i, 'pending');
+            }
+
+            log('Starting GPT + Sculptok pipeline...', 'info');
+            document.getElementById('progressStatus').textContent = 'Initializing...';
+
+            try {
+                // Build form data
+                const formData = new FormData();
+                formData.append('user_image', fileInput.files[0]);
+                formData.append('accessory_1', document.getElementById('accessory1').value);
+                formData.append('accessory_2', document.getElementById('accessory2').value);
+                formData.append('accessory_3', document.getElementById('accessory3').value);
+                formData.append('width_mm', document.getElementById('widthMm').value);
+
+                // Step 1: Start
+                updateStep(1, 'running', 'Generating images with GPT-image-1.5...');
+                document.getElementById('progressStatus').textContent = 'Step 1/3: GPT Generation';
+                log('Sending request to GPT-image-1.5...', 'info');
+
+                // Make the API call
+                const response = await fetch('/test/sculptok/gpt-to-stl', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                log(`Response received: ${JSON.stringify(data).substring(0, 200)}...`, 'info');
+
+                if (data.steps?.gpt_generation?.success) {
+                    updateStep(1, 'complete', `Generated ${data.steps.gpt_generation.count} images`);
+                    log(`GPT generated ${data.steps.gpt_generation.count} images`, 'success');
+
+                    // Show image previews
+                    if (data.steps.gpt_generation.images) {
+                        showImagePreviews(data.steps.gpt_generation.images);
+                    }
+                } else {
+                    updateStep(1, 'error', 'GPT generation failed');
+                    log('GPT generation failed', 'error');
+                }
+
+                // Step 2: Sculptok
+                if (data.steps?.sculptok_processing) {
+                    if (data.steps.sculptok_processing.success) {
+                        updateStep(2, 'complete', 'All images processed');
+                        log('Sculptok processing complete', 'success');
+                    } else {
+                        updateStep(2, 'error', 'Some images failed');
+                        log('Sculptok processing had errors', 'warn');
+                    }
+
+                    // Log individual results
+                    if (data.steps.sculptok_processing.results) {
+                        data.steps.sculptok_processing.results.forEach(r => {
+                            log(`${r.type}: ${r.result?.success ? 'Success' : 'Failed'}`, r.result?.success ? 'success' : 'error');
+                        });
+                    }
+                }
+
+                // Step 3: Results
+                if (data.success) {
+                    updateStep(3, 'complete', 'All files downloaded');
+                    document.getElementById('progressStatus').textContent = 'Complete!';
+                    log('Pipeline completed successfully!', 'success');
+                    showResults(data);
+                } else {
+                    updateStep(3, 'error', 'Pipeline failed');
+                    document.getElementById('progressStatus').textContent = 'Failed';
+                    log(`Pipeline failed: ${data.error || 'Unknown error'}`, 'error');
+                }
+
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                document.getElementById('progressStatus').textContent = 'Error';
+                updateStep(1, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '🚀 Run Full Pipeline';
+            }
+        });
+    </script>
+</body>
+</html>

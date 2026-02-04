@@ -47,7 +47,28 @@ class Settings(BaseSettings):
     HUNYUAN3D_OUTPUT_FORMAT: str = "glb"  # glb, obj, ply
 
     # 3D Provider Selection
-    THREED_PROVIDER: str = "tripo3d"  # "hunyuan" or "tripo3d"
+    THREED_PROVIDER: str = "tripo3d"  # "hunyuan" or "tripo3d" or "sculptok"
+
+    # Supabase Configuration
+    SUPABASE_URL: str = "https://dhsblngaosaxxmwbiusa.supabase.co"
+    SUPABASE_ANON_KEY: str = ""  # Public key for client-side
+    SUPABASE_SERVICE_KEY: str = ""  # Secret key for server-side
+
+    # Sculptok API Configuration (https://api.sculptok.com)
+    SCULPTOK_API_KEY: str = ""
+    SCULPTOK_API_BASE_URL: str = "https://api.sculptok.com/api-open"
+    SCULPTOK_TIMEOUT: int = 300  # 5 minutes timeout
+    SCULPTOK_POLL_INTERVAL: int = 5  # Seconds between status checks
+    SCULPTOK_MAX_POLL_ATTEMPTS: int = 120  # Max polling attempts (10 minutes total)
+
+    # Sculptok STL Generation Parameters
+    SCULPTOK_WIDTH_MM: float = 120.0  # Output model width (mm), range 40-240
+    SCULPTOK_MIN_THICKNESS: float = 1.6  # Min thickness (mm) for brightest area, range 0.4-8
+    SCULPTOK_MAX_THICKNESS: float = 5.0  # Max thickness (mm) for darkest area, range 0.4-25
+    SCULPTOK_INVERT: bool = False  # Invert grayscale
+    SCULPTOK_SCALE_IMAGE: int = 50  # Image scale percent (0-100)
+    SCULPTOK_BG_REMOVE_TYPE: str = "general"  # "anime" or "general"
+    SCULPTOK_HD_FIX: bool = True  # Enable HD restoration
 
     # Tripo3D API Configuration (https://platform.tripo3d.ai)
     TRIPO3D_API_KEY: str = "tsk_lVCR4w3mgJSE9HJIpXvx5QzqP6w1jaBw2iUKFYDjYgQ"
@@ -111,6 +132,8 @@ print(f" - Image Size: {settings.IMAGE_SIZE}")
 print(f" - Image Quality: {settings.IMAGE_QUALITY}")
 print(f" - API Key: {'✅ Set' if settings.OPENAI_API_KEY else '❌ Missing'}")
 print(f" - Hunyuan3D API: {settings.HUNYUAN3D_API_URL}")
+print(f" - Sculptok API: {'✅ Set' if settings.SCULPTOK_API_KEY else '❌ Missing'}")
+print(f" - Supabase: {'✅ Set' if settings.SUPABASE_SERVICE_KEY else '❌ Missing'}")
 print(f" - Background Removal: {'✅ Enabled' if settings.BACKGROUND_REMOVAL_ENABLED else '❌ Disabled'}")
 print(f" - Blender Executable: {settings.BLENDER_EXECUTABLE}")
 print(f" - STL Output: {'✅ Enabled' if settings.STL_OUTPUT_ENABLED else '❌ Disabled'}")
